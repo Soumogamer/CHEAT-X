@@ -3,7 +3,7 @@ const { WebSocketServer } = require('ws');
 const FILE = path.join(process.env.DATA_DIR || __dirname, 'data.json');
 const RU = process.env.UPSTASH_REDIS_REST_URL, RT = process.env.UPSTASH_REDIS_REST_TOKEN;
 const ICE = process.env.ICE_JSON ? JSON.parse(process.env.ICE_JSON) : [
-  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: ['stun:stun.l.google.com:19302', 'stun:stun.cloudflare.com:3478'] },
   { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }];
 let db = { users: {} }, tm;
 const redis = cmd => fetch(RU, { method: 'POST', headers: { Authorization: 'Bearer ' + RT }, body: JSON.stringify(cmd) }).then(r => r.json());
@@ -31,7 +31,7 @@ const view = (l, p) => {
   const g = l.g;
   return { t: 'lobby', host: l.host, me: p.id, set: l.set, res: l.res,
     players: l.ps.map(q => ({ id: q.id, name: q.name, av: q.av, off: !!q.off, n: g ? (g.h[q.id] || []).length : 0 })),
-    g: g && { turn: g.turn, pile: g.pile.length, pend: !!g.pend, rev: g.rev, log: g.log, hand: g.h[p.id],
+    g: g && { turn: g.turn, rank: g.rank, pile: g.pile.length, pend: !!g.pend, rev: g.rev, log: g.log, hand: g.h[p.id],
       last: g.last && { by: g.last.by, rank: g.last.rank, n: g.last.ids.length } } };
 };
 function push(l) { l.ps.forEach(p => send(p.ws, view(l, p))); kick(l); }
@@ -73,10 +73,11 @@ function leave(p) {
 function doPlay(l, p, cards, r) {
   const g = l.g; if (!g || g.turn !== p.id || g.pend || !Array.isArray(cards)) return;
   const ids = [...new Set(cards)].filter(i => g.h[p.id].includes(i));
-  if (!ids.length || !(r >= 0 && r < 13)) return;
+  const rk = g.rank == null ? r : g.rank; // first player sets the rank, everyone else must follow it
+  if (!ids.length || !(rk >= 0 && rk < 13)) return;
   g.h[p.id] = g.h[p.id].filter(i => !ids.includes(i));
-  g.pile.push(...ids); g.last = { by: p.id, rank: r, ids }; g.passes = 0; g.rev = null;
-  log(g, `${p.name} played ${ids.length} × ${RK[r]}`);
+  g.pile.push(...ids); g.rank = rk; g.last = { by: p.id, rank: rk, ids }; g.passes = 0; g.rev = null;
+  log(g, `${p.name} played ${ids.length} × ${RK[rk]}`);
   if (!g.h[p.id].length) { log(g, `${p.name} is out of cards!`); g.pend = setTimeout(() => { if (l.g === g) win(l, p); }, 6000); }
   g.turn = nxt(g, p.id); push(l);
 }
@@ -85,7 +86,7 @@ function doPass(l, p) {
   g.passes++; g.rev = null;
   if (g.passes >= g.order.length - 1) {
     log(g, 'Everyone passed. Pile cleared.');
-    g.turn = nxt(g, g.last.by); g.pile = []; g.last = null; g.passes = 0;
+    g.turn = nxt(g, g.last.by); g.pile = []; g.last = null; g.passes = 0; g.rank = null;
   } else { log(g, `${p.name} passed`); g.turn = nxt(g, p.id); }
   push(l);
 }
@@ -100,7 +101,7 @@ function doBluff(l, p) {
   g.pile = []; g.last = null; g.passes = 0;
   log(g, `${p.name} called bluff: ${ok ? 'it was true' : 'it was a bluff'}! ${loser.name} takes the pile`);
   if (ok && !g.h[by.id].length) return win(l, by);
-  g.turn = p.id; push(l); // the player who called bluff starts the next round
+  g.rank = null; g.turn = p.id; push(l); // the player who called bluff starts the next round
 }
 
 function handle(ws, m) {
@@ -164,7 +165,7 @@ function handle(ws, m) {
       const h = {}; l.ps.forEach(q => h[q.id] = []);
       d.forEach((c, i) => h[l.ps[i % l.ps.length].id].push(c));
       l.res = '';
-      l.g = { h, order: l.ps.map(q => q.id), turn: l.ps[0].id, pile: [], last: null, passes: 0, log: ['Match started'], rev: null, pend: null, auto: null };
+      l.g = { h, order: l.ps.map(q => q.id), turn: l.ps[0].id, pile: [], last: null, passes: 0, log: ['Match started'], rev: null, pend: null, auto: null, rank: null };
       push(l); break;
     }
     case 'play': doPlay(l, p, m.cards, m.rank); break;
