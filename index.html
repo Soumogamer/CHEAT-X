@@ -74,7 +74,7 @@ function conn(){
 }
 const tx=o=>ws&&ws.readyState==1&&ws.send(JSON.stringify(o));
 const rect=s=>{const e=$(s);return e&&e.getBoundingClientRect()};
-function on(m){switch(m.t){
+function on(m){const s0=S.scr;switch(m.t){
   case'me':S.me={...S.me,...m};if(m.ice)ICE=m.ice;if(m.hist)S.hist=m.hist;
     if(!m.inl&&S.L){S.L=null;S.scr='home'}if(S.scr=='auth'||S.scr=='prof')S.scr='home';break;
   case'list':S.ls=m.ls;{const e=$('#ls');if(e)e.innerHTML=lsHtml()}return;
@@ -93,7 +93,7 @@ function on(m){switch(m.t){
   case'end':S.hist.unshift(m.h);if(!S.me.uid){localStorage.h=JSON.stringify(S.hist.slice(0,20));const s=J('st','[0,0]');localStorage.st=JSON.stringify([s[0]+(m.h.won?1:0),s[1]+1])}break;
   case'emo':{const p=S.L&&S.L.players.find(x=>x.id==m.from);return toast((p?p.name:'')+' '+m.e)}
   case'rtc':return onrtc(m.from,m.data);
-}R()}
+}if(S.scr!=s0){if(document.activeElement)document.activeElement.blur();R()}else RR()}
 /* ---------- cards & animation ---------- */
 function card(c,click){const j=c>=52,s=c/13|0;
   return `<span data-id="${c}" class="c${!j&&(s==1||s==2)?' r':''}${click&&S.sel.has(c)?' s':''}" ${click?`onclick="tg(${c},this)"`:''}>${j?'<i>🃏</i>':RK[c%13]+'<i>'+SU[s]+'</i>'}</span>`}
@@ -115,7 +115,7 @@ function R(){
   document.querySelectorAll('.hand .c').forEach(e=>old[e.dataset.id]=e.getBoundingClientRect());
   fit();
   const V={splash,auth:()=>prof(1),prof:()=>hdr()+prof(0),home:()=>hdr()+home(),room};
-  $('#app').innerHTML=(S.on?'':'<div class="ban">Reconnecting…</div>')+V[S.scr]();
+  $('#app').innerHTML=(S.on?'':'<div class="ban">Connecting… the free server can take up to a minute to wake up</div>')+V[S.scr]();
   const h=$('.hand');if(h)h.scrollLeft=sc;
   let i=0;document.querySelectorAll('.hand .c').forEach(e=>{const o=old[e.dataset.id],n=e.getBoundingClientRect();
     if(!o)return e.animate([{transform:'translateY(36px)',opacity:0},{transform:'none',opacity:1}],{duration:340,delay:(i++)*30,easing:'cubic-bezier(.2,.8,.3,1)',fill:'backwards'});
