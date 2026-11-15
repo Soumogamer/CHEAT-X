@@ -148,7 +148,7 @@ function home(){const T=['🏠 Lobbies','👥 Users<span class="bd">'+S.us.lengt
   if(S.tab==2)h+=`<div class="lbl">LEADERBOARD · WINS</div>`+(S.rank.length?S.rank.map((u,i)=>`<div class="pn bar"><span class="who"><b>${['🥇','🥈','🥉'][i]||i+1}</b><span class="a">${A(u.av)}</span><b>${esc(u.name)}</b></span><b>${u.w} wins<small>${u.g} games</small></b></div>`).join(''):'<div class="empty"><div>🏆</div>No winners yet.<br><small>Sign up to appear here.</small></div>');
   if(S.tab==3)h+=S.hist.length?S.hist.map(x=>`<div class="pn">${x.won?'🏆 Won':'Lost'} · ${esc(x.w)} won<br><small>${esc(x.ps.join(', '))} · ${new Date(x.t).toLocaleString()}</small></div>`).join(''):'<div class="empty"><div>📜</div>No matches yet.</div>';
   return h+`<div class="pn bar"><small>Bluff v2.0</small><small>${S.on?'✓ Connected':'Reconnecting…'}</small></div>`}
-function tab(i){S.tab=i;R();tx({t:['list','users','rank'][i]||'list')}
+function tab(i){S.tab=i;R();tx({t:['list','users','rank'][i]||'list'})}
 function room(){const L=S.L,g=L.g,host=L.host==L.me,nm=id=>(L.players.find(p=>p.id==id)||{}).name;
   const hn=nm(L.host);
   let h=`<div class="top"><button class="ib" onclick="tx({t:'leave'})">‹</button><b>${esc(hn)}'s lobby</b><div><button class="ib" onclick="mic()">${mt?(S.mute?'🔇':'🎤'):'🎙️'}</button><button class="ib" onclick="fs()">⛶</button><button class="ib" onclick="S.menu=!S.menu;R()">⋯</button></div></div>`+(S.menu?menu():'');
