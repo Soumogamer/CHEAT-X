@@ -64,13 +64,13 @@ const A=a=>a&&a.startsWith('data:')?`<img src="${esc(a)}">`:esc(a||'🙂');
 const PID=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2,12)+Date.now().toString(36));
 let S={me:{av:EM[0],name:''},scr:'splash',tab:0,sel:new Set(),rk:null,ls:[],us:[],rank:[],hist:J('h','[]'),L:null,menu:0,emo:0,on:0,rot:0};
 let ws,ICE=[{urls:'stun:stun.l.google.com:19302'}],mt=null,pcs={};
-const RR=()=>{clearTimeout(RR.t);RR.t=setTimeout(R,120)};
+const RR=()=>{clearTimeout(RR.t);RR.t=setTimeout(()=>{const a=document.activeElement;if(a&&a.tagName=='INPUT'&&a.type!='checkbox')return;R()},120)};
 function toast(s){const t=$('#toast');t.textContent=s;t.style.display='block';clearTimeout(t.k);t.k=setTimeout(()=>t.style.display='none',2600)}
 function conn(){
   ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host);
-  ws.onopen=()=>{S.on=1;tx({t:'hello',pid:PID,tok:localStorage.tok,...J('prof','{}')});R()};
+  ws.onopen=()=>{S.on=1;tx({t:'hello',pid:PID,tok:localStorage.tok,...J('prof','{}')});RR()};
   ws.onmessage=e=>on(JSON.parse(e.data));
-  ws.onclose=()=>{S.on=0;Object.keys(pcs).forEach(closePc);R();setTimeout(conn,1500)}
+  ws.onclose=()=>{S.on=0;Object.keys(pcs).forEach(closePc);RR();setTimeout(conn,1500)}
 }
 const tx=o=>ws&&ws.readyState==1&&ws.send(JSON.stringify(o));
 const rect=s=>{const e=$(s);return e&&e.getBoundingClientRect()};
@@ -129,7 +129,7 @@ function splash(){return `<div class="splash"><div class="logo">${[['♠',-24],[
 function go(f){if(f)fs();S.scr=S.L?'room':S.me.name?'home':'auth';R();tx({t:'list'})}
 const fs=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>toast('Fullscreen not supported here'));
 async function rotate(){S.rot=!S.rot;S.menu=0;try{if(S.rot){await document.documentElement.requestFullscreen();await screen.orientation.lock('landscape')}else screen.orientation.unlock()}catch{}R();setTimeout(R,400)}
-addEventListener('resize',RR);
+let lsPrev=innerWidth>innerHeight;addEventListener('resize',()=>{const n=innerWidth>innerHeight;if(n!=lsPrev){lsPrev=n;RR()}});
 const st=()=>S.me.uid?[S.me.wins||0,S.me.games||0]:J('st','[0,0]');
 function hdr(){const [w,g]=st();return `<div class="top"><div class="who" ${S.scr=='home'?`onclick="S.scr='prof';R()" style="cursor:pointer"`:''}><span class="a">${A(S.me.av)}</span><b>${esc(S.me.name)} ✎<small style="display:block">${w} wins · ${g} games</small></b></div>
 <button class="ib" onclick="S.menu=!S.menu;R()">⋯</button></div>`+(S.menu?menu():'')}
