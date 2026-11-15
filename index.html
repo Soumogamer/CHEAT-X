@@ -54,6 +54,9 @@ body.ls .a{width:32px;height:32px;font-size:18px}body.ls .tb{min-height:80px;pad
 .emo{display:flex;justify-content:space-around;font-size:28px;margin:6px 0}
 .rev .c{margin:1px}.rev.flip .c{animation:flip .5s}@keyframes flip{from{transform:rotateY(90deg)}}
 #toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#000d;padding:10px 16px;border-radius:20px;display:none;z-index:50}
+.up{animation:up .5s cubic-bezier(.2,.8,.3,1) both;animation-delay:calc(var(--i,0)*70ms)}@keyframes up{from{opacity:0;transform:translateY(18px)}}
+.cta{animation:pulse 2.6s ease-out infinite}@keyframes pulse{0%{box-shadow:0 0 0 0 #6366f180}70%,100%{box-shadow:0 0 0 14px #6366f100}}
+@media(prefers-reduced-motion:reduce){.up,.cta{animation:none}}
 </style></head><body>
 <div id="app"></div><div id="toast"></div>
 <script>
@@ -64,6 +67,7 @@ const A=a=>a&&a.startsWith('data:')?`<img src="${esc(a)}">`:esc(a||'🙂');
 const PID=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2,12)+Date.now().toString(36));
 let S={me:{av:EM[0],name:''},scr:'splash',tab:0,sel:new Set(),rk:null,ls:[],us:[],rank:[],hist:J('h','[]'),L:null,menu:0,emo:0,on:0,rot:0};
 let ws,ICE=[{urls:'stun:stun.l.google.com:19302'}],mt=null,pcs={};
+function anim(){S.anim=1;clearTimeout(anim.t);anim.t=setTimeout(()=>S.anim=0,900)}
 const RR=()=>{clearTimeout(RR.t);RR.t=setTimeout(()=>{const a=document.activeElement;if(a&&a.tagName=='INPUT'&&a.type!='checkbox')return;R()},120)};
 function toast(s){const t=$('#toast');t.textContent=s;t.style.display='block';clearTimeout(t.k);t.k=setTimeout(()=>t.style.display='none',2600)}
 function conn(){
@@ -83,7 +87,7 @@ function on(m){const s0=S.scr;switch(m.t){
   case'lobby':{const pg=S.L&&S.L.g,ng=m.g;S.L=m;if(S.scr!='splash')S.scr='room';
     S.sel=new Set([...S.sel].filter(c=>ng&&ng.hand.includes(c)));
     if(ng&&ng.rev&&JSON.stringify(ng.rev)!=JSON.stringify(pg&&pg.rev)){S.flip=1;setTimeout(()=>S.flip=0,800)}
-    const src0=rect('.tb');R();
+    const start=!pg&&ng;if(start)S.dealD=650;S.at=Date.now();const src0=rect('.tb');R();S.dealD=0;if(start)deal();
     if(pg&&ng){const mid=rect('.tb');
       if(ng.pile>pg.pile&&ng.last){const by=ng.last.by,src=by==m.me?S.fr:rect('#seat-'+by);if(src&&mid)fly(src,mid,ng.last.n)}
       else if(pg.pile>0&&ng.pile==0&&ng.rev){const t=rect(ng.rev.loser==m.me?'.hand':'#seat-'+ng.rev.loser);if(t&&src0)fly(src0,t,pg.pile)}}
@@ -93,7 +97,7 @@ function on(m){const s0=S.scr;switch(m.t){
   case'end':S.hist.unshift(m.h);if(!S.me.uid){localStorage.h=JSON.stringify(S.hist.slice(0,20));const s=J('st','[0,0]');localStorage.st=JSON.stringify([s[0]+(m.h.won?1:0),s[1]+1])}break;
   case'emo':{const p=S.L&&S.L.players.find(x=>x.id==m.from);return toast((p?p.name:'')+' '+m.e)}
   case'rtc':return onrtc(m.from,m.data);
-}if(S.scr!=s0){if(document.activeElement)document.activeElement.blur();R()}else RR()}
+}if(S.scr!=s0){if(document.activeElement)document.activeElement.blur();if(S.scr=='home')anim();R()}else RR()}
 /* ---------- cards & animation ---------- */
 function card(c,click){const j=c>=52,s=c/13|0;
   return `<span data-id="${c}" class="c${!j&&(s==1||s==2)?' r':''}${click&&S.sel.has(c)?' s':''}" ${click?`onclick="tg(${c},this)"`:''}>${j?'<i>🃏</i>':RK[c%13]+'<i>'+SU[s]+'</i>'}</span>`}
@@ -104,11 +108,13 @@ function pickRk(i){S.rk=i;document.querySelectorAll('.rk b').forEach((b,j)=>b.cl
 const plTxt=()=>`Play (${S.sel.size})${cr()!=null?' as '+RK[cr()]:''}`;
 function updPlay(){const b=$('#pb');if(b){b.disabled=!(S.sel.size&&cr()!=null);b.textContent=plTxt()}}
 function play(){const e=$('.hand .c.s');S.fr=e&&e.getBoundingClientRect();tx({t:'play',cards:[...S.sel],rank:cr()});S.sel.clear();S.rk=null}
-function fly(a,b,n){if(document.body.classList.contains('rot'))return;
+function fly(a,b,n,d0=0){if(document.body.classList.contains('rot'))return;
   for(let i=0;i<Math.min(n,4);i++){const e=document.createElement('span');e.className='c b fl';
     Object.assign(e.style,{left:a.left+a.width/2-23+'px',top:a.top+a.height/2-33+'px'});document.body.append(e);
     const dx=b.left+b.width/2-a.left-a.width/2+(i-1)*8,dy=b.top+b.height/2-a.top-a.height/2;
-    e.animate([{transform:'translate(0,0) rotate(0deg)'},{transform:`translate(${dx}px,${dy}px) rotate(${i*10-10}deg)`}],{duration:520,delay:i*70,easing:'cubic-bezier(.2,.8,.3,1)',fill:'both'}).onfinish=()=>e.remove()}}
+    e.animate([{transform:'translate(0,0) rotate(0deg)'},{transform:`translate(${dx}px,${dy}px) rotate(${i*10-10}deg)`}],{duration:520,delay:d0+i*70,easing:'cubic-bezier(.2,.8,.3,1)',fill:'both'}).onfinish=()=>e.remove()}}
+function deal(){const m=rect('.tb');if(!m)return;const t=[...document.querySelectorAll('.se'),$('.hand')].filter(Boolean).map(e=>e.getBoundingClientRect());let k=0;
+  for(let r=0;r<3;r++)t.forEach(b=>fly(m,b,1,(k++)*85))}
 const fit=()=>{const b=document.body;b.classList.toggle('rot',!!S.rot&&innerHeight>innerWidth);b.classList.toggle('ls',!!S.rot||innerWidth>innerHeight)};
 function R(){
   const hs=$('.hand'),sc=hs?hs.scrollLeft:0,old={};
@@ -118,7 +124,7 @@ function R(){
   $('#app').innerHTML=(S.on?'':'<div class="ban">Connecting… the free server can take up to a minute to wake up</div>')+V[S.scr]();
   const h=$('.hand');if(h)h.scrollLeft=sc;
   let i=0;document.querySelectorAll('.hand .c').forEach(e=>{const o=old[e.dataset.id],n=e.getBoundingClientRect();
-    if(!o)return e.animate([{transform:'translateY(36px)',opacity:0},{transform:'none',opacity:1}],{duration:340,delay:(i++)*30,easing:'cubic-bezier(.2,.8,.3,1)',fill:'backwards'});
+    if(!o)return e.animate([{transform:'translateY(36px)',opacity:0},{transform:'none',opacity:1}],{duration:340,delay:(S.dealD||0)+(i++)*30,easing:'cubic-bezier(.2,.8,.3,1)',fill:'backwards'});
     const dx=o.left-n.left,dy=o.top-n.top;
     if(Math.abs(dx)+Math.abs(dy)>1){const T=getComputedStyle(e).transform,b=T=='none'?'':T;
       e.animate([{transform:`translate(${dx}px,${dy}px) ${b}`},{transform:b||'none'}],{duration:280,easing:'cubic-bezier(.2,.8,.3,1)'})}})}
@@ -126,7 +132,7 @@ function R(){
 function splash(){return `<div class="splash"><div class="logo">${[['♠',-24],['♥',-8],['♦',8],['♣',24]].map(([s,r])=>`<span class="c${s=='♥'||s=='♦'?' r':''}" style="transform:rotate(${r}deg)">${s}</span>`).join('')}</div>
 <h1>Bluff</h1><div class="tag">PLAY · BLUFF · CALL</div><div style="margin-top:44px"><button style="width:100%;padding:16px" onclick="go(1)">Tap to play fullscreen</button><br><button class="g" onclick="go(0)">Play without fullscreen</button></div>
 <small>Bluff v3.0<br>Made with ❤️ by SOUMO</small></div>`}
-function go(f){if(f)fs();S.scr=S.L?'room':S.me.name?'home':'auth';R();tx({t:'list'})}
+function go(f){if(f)fs();S.scr=S.L?'room':S.me.name?'home':'auth';anim();R();tx({t:'list'})}
 const fs=()=>document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>toast('Fullscreen not supported here'));
 async function rotate(){S.rot=!S.rot;S.menu=0;try{if(S.rot){await document.documentElement.requestFullscreen();await screen.orientation.lock('landscape')}else screen.orientation.unlock()}catch{}R();setTimeout(R,400)}
 let lsPrev=innerWidth>innerHeight;addEventListener('resize',()=>{const n=innerWidth>innerHeight;if(n!=lsPrev){lsPrev=n;RR()}});
@@ -154,13 +160,13 @@ function pick(i){const f=i.files[0];if(!f)return;const im=new Image();im.onload=
   const c=document.createElement('canvas');c.width=c.height=72;const s=Math.min(im.width,im.height);
   c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,72,72);
   S.me.name=val('n');S.me.av=c.toDataURL('image/jpeg',.7);R()};im.src=URL.createObjectURL(f)}
-const lsHtml=()=>S.ls.length?S.ls.map(x=>`<div class="pn bar"><span class="who">${x.avs.map(a=>`<span class="a" style="width:32px;height:32px;font-size:18px">${A(a)}</span>`).join('')}<b>${esc(x.host)}'s lobby<small style="display:block">(${x.n}/4)</small></b></span><button onclick="tx({t:'join',code:'${x.code}'})">Join</button></div>`).join(''):'<div class="empty"><div>🏠</div>No lobbies yet.<br><small>Create one and invite your friends.</small></div>';
+const lsHtml=()=>S.ls.length?S.ls.map((x,i)=>`<div class="pn bar${S.anim?' up':''}" style="--i:${i}"><span class="who">${x.avs.map(a=>`<span class="a" style="width:32px;height:32px;font-size:18px">${A(a)}</span>`).join('')}<b>${esc(x.host)}'s lobby<small style="display:block">(${x.n}/4)</small></b></span><button onclick="tx({t:'join',code:'${x.code}'})">Join</button></div>`).join(''):'<div class="empty"><div>🏠</div>No lobbies yet.<br><small>Create one and invite your friends.</small></div>';
 function home(){let h=`<div class="tabs">${['🏠 Lobbies','🏆 Ranks','📜 History'].map((t,i)=>`<b class="${S.tab==i?'on':''}" onclick="tab(${i})">${t}</b>`).join('')}</div>`;
-  if(S.tab==0)h+=`<div class="lbl">LOBBIES <span class="dot">●</span> <span id="onl">${S.us.length} online</span></div><div id="ls">${lsHtml()}</div><button style="width:100%;margin-top:10px" onclick="tx({t:'create'})">＋ Create lobby</button>`;
-  if(S.tab==1)h+=S.rank.length?S.rank.map((u,i)=>`<div class="pn bar"><span class="who"><b>${['🥇','🥈','🥉'][i]||i+1}</b><span class="a">${A(u.av)}</span><b>${esc(u.name)}</b></span><b>${u.w} wins<small style="display:block">(${u.g} games)</small></b></div>`).join(''):'<div class="empty"><div>🏆</div>No winners yet.<br><small>Sign up to appear here.</small></div>';
-  if(S.tab==2)h+=S.hist.length?S.hist.map(x=>`<div class="pn">${x.won?'🏆 Won':'Lost'} · ${esc(x.w)} won<br><small>${esc(x.ps.join(', '))} · ${new Date(x.t).toLocaleString()}</small></div>`).join(''):'<div class="empty"><div>📜</div>No matches yet.</div>';
+  if(S.tab==0)h+=`<div class="lbl">LOBBIES <span class="dot">●</span> <span id="onl">${S.us.length} online</span></div><div id="ls">${lsHtml()}</div><div class="${S.anim?'up':''}" style="--i:${S.ls.length+1}"><button class="cta" style="width:100%;margin-top:10px" onclick="tx({t:'create'})">＋ Create lobby</button></div>`;
+  if(S.tab==1)h+=S.rank.length?S.rank.map((u,i)=>`<div class="pn bar${S.anim?' up':''}" style="--i:${i}"><span class="who"><b>${['🥇','🥈','🥉'][i]||i+1}</b><span class="a">${A(u.av)}</span><b>${esc(u.name)}</b></span><b>${u.w} wins<small style="display:block">(${u.g} games)</small></b></div>`).join(''):'<div class="empty"><div>🏆</div>No winners yet.<br><small>Sign up to appear here.</small></div>';
+  if(S.tab==2)h+=S.hist.length?S.hist.map((x,i)=>`<div class="pn${S.anim?' up':''}" style="--i:${i}">${x.won?'🏆 Won':'Lost'} · ${esc(x.w)} won<br><small>${esc(x.ps.join(', '))} · ${new Date(x.t).toLocaleString()}</small></div>`).join(''):'<div class="empty"><div>📜</div>No matches yet.</div>';
   return h}
-function tab(i){S.tab=i;R();tx({t:i==1?'rank':'list'})}
+function tab(i){S.tab=i;anim();R();tx({t:i==1?'rank':'list'})}
 const vc=id=>pcs[id]&&pcs[id].connectionState=='connected'?' 🔊':'';
 const seat=(p,g,c)=>`<div class="se p-${c}${g&&g.turn==p.id?' on':''}${p.off?' off':''}" id="seat-${p.id}"><div class="a">${A(p.av)}</div>${esc(p.name)}<small>(${p.n})${p.off?' offline':''}${vc(p.id)}</small></div>`;
 function room(){const L=S.L,g=L.g,host=L.host==L.me,nm=id=>(L.players.find(p=>p.id==id)||{}).name;
@@ -169,14 +175,14 @@ function room(){const L=S.L,g=L.g,host=L.host==L.me,nm=id=>(L.players.find(p=>p.
   if(!g)return h+`<div class="lbl">PLAYERS (${L.players.length}/4)</div>`+L.players.map(p=>`<div class="pn who"><span class="a">${A(p.av)}</span><b>${esc(p.name)}${p.id==L.host?' 👑':''}${p.off?' <small>(offline)</small>':''}${vc(p.id)}</b></div>`).join('')+(L.res?`<div class="pn">${esc(L.res)}</div>`:'')+
     (host?`<div class="pn"><label><input type="checkbox" style="width:auto" ${L.set.wild?'checked':''} onchange="tx({t:'set',wild:this.checked})"> Jokers are wild</label><br><button style="width:100%;margin-top:8px" onclick="tx({t:'start'})" ${L.players.length<2?'disabled':''}>▶ Start match</button></div>`:`<div class="pn">Waiting for the host to start…</div>`);
   const i=L.players.findIndex(p=>p.id==L.me),o=[...L.players.slice(i+1),...L.players.slice(0,i)],pos={1:['t'],2:['l','r'],3:['l','t','r']}[o.length]||[];
-  const my=[...g.hand].sort((a,b)=>cv(a)-cv(b)),cur=g.turn==L.me&&!g.pend,canB=g.last&&g.last.by!=L.me;
+  const my=[...g.hand].sort((a,b)=>cv(a)-cv(b)),mine=g.turn==L.me,cur=mine&&!g.pend,canB=g.last&&g.last.by!=L.me;
   const tb=g.rev&&!g.last?`${esc(g.rev.caller)} called ${esc(g.rev.by)}<div class="rev${S.flip?' flip':''}">${g.rev.ids.map(c=>card(c)).join('')}</div><b>${g.rev.ok?'✅ It was true':'❌ It was a bluff'}</b><small>${esc(nm(g.rev.loser))} takes the pile</small>`
     :`${g.pile?'<span class="pc">'+'<span class="c b"></span>'.repeat(Math.min(g.pile,3))+'</span>':''}<b>${g.last?esc(nm(g.last.by))+' says '+g.last.n+' × '+RK[g.last.rank]:'New round'}</b><small>${g.rank!=null?'Round rank: '+RK[g.rank]+' · ':''}Pile (${g.pile})</small>`;
   return h+`<div class="gm"><div class="gt">${o.map((p,k)=>seat(p,g,pos[k])).join('')}<div class="tb">${tb}</div></div>
-  <div class="bar"><b>You (${my.length})</b><span class="pill">${g.pend?'Last cards! Call bluff':g.turn==L.me?'Your turn':esc(nm(g.turn))+"'s turn"}</span></div>`+
+  <div class="bar"><b>You (${my.length})</b><span class="pill">${g.pend?'Last cards · ':''}${mine?'Your turn':esc(nm(g.turn))+"'s turn"} · <span id="cd">${Math.ceil(Math.max(0,g.left-(Date.now()-S.at))/1000)}</span>s</span></div>`+
   (cur?(g.rank==null?`<div class="rk"><span>Pick a rank</span>${RK.map((r,k)=>`<b class="${S.rk===k?'on':''}" onclick="pickRk(${k})">${r}</b>`).join('')}</div>`:`<div class="lock">🔒 You must claim <b>${RK[g.rank]}</b></div>`):'')+
   `<div class="dock"><div class="hand">${my.map(c=>card(c,1)).join('')}</div>
-  <div class="bl">${canB?'<button class="r" onclick="tx({t:\'bluff\'})">Bluff</button>':''}${cur&&g.last?'<button class="g" onclick="tx({t:\'pass\'})">Pass</button>':''}</div>
+  <div class="bl">${canB?'<button class="r" onclick="tx({t:\'bluff\'})">Bluff</button>':''}${mine&&g.last?'<button class="g" onclick="tx({t:\'pass\'})">Pass</button>':''}</div>
   <div class="pl">${cur?`<button id="pb" onclick="play()" ${S.sel.size&&cr()!=null?'':'disabled'}>${plTxt()}</button>`:''}</div></div></div>`}
 /* ---------- voice chat ---------- */
 const sig=(to,data)=>tx({t:'rtc',to,data});
@@ -207,5 +213,6 @@ function peers(){const L=S.L;if(!L)return;
     if(!pc||(pc.connectionState!='connected'&&Date.now()-pc.t>10000))offer(p.id)})}
 function closePc(k){pcs[k]&&pcs[k].close();delete pcs[k];const a=$('#au'+k);a&&a.remove()}
 apply();R();conn();
+setInterval(()=>{const e=$('#cd');if(e&&S.L&&S.L.g)e.textContent=Math.max(0,Math.ceil((S.L.g.left-(Date.now()-S.at))/1000))},500);
 setInterval(()=>{if(S.scr=='home'&&S.on){tx({t:S.tab==1?'rank':'list'});tx({t:'users'})}if(S.scr=='room')peers()},3000);
 </script></body></html>

@@ -31,27 +31,34 @@ const view = (l, p) => {
   const g = l.g;
   return { t: 'lobby', host: l.host, me: p.id, set: l.set, res: l.res,
     players: l.ps.map(q => ({ id: q.id, name: q.name, av: q.av, off: !!q.off, n: g ? (g.h[q.id] || []).length : 0 })),
-    g: g && { turn: g.turn, rank: g.rank, pile: g.pile.length, pend: !!g.pend, rev: g.rev, log: g.log, hand: g.h[p.id],
+    g: g && { turn: g.turn, rank: g.rank, left: Math.max(0, (g.until || 0) - Date.now()), pile: g.pile.length, pend: !!g.pend, rev: g.rev, log: g.log, hand: g.h[p.id],
       last: g.last && { by: g.last.by, rank: g.last.rank, n: g.last.ids.length } } };
 };
-function push(l) { l.ps.forEach(p => send(p.ws, view(l, p))); kick(l); }
+function push(l) { kick(l); l.ps.forEach(p => send(p.ws, view(l, p))); }
 const me = p => { const u = p.u && db.users[p.u];
   send(p.ws, { t: 'me', uid: p.u, name: p.name, av: p.av, ice: ICE, inl: !!p.l, ...(u && { tok: u.tok, hist: u.hist, wins: u.wins || 0, games: u.games || 0 }) }); };
 const login = (p, id) => { const u = db.users[id]; p.u = id; p.name = u.name; p.av = u.av; p.ready = 1; };
 
-// offline players: the server plays for them so the table never stalls
+// 45 seconds per turn; offline players are played for after a short wait
+function timeUp(l, g) {
+  if (l.g !== g) return;
+  const c = l.ps.find(q => q.id === g.turn); if (!c) return;
+  log(g, `${c.name} ran out of time`);
+  if (g.last) doPass(l, c); else { const k = g.h[c.id][0]; doPlay(l, c, [k], k < 52 ? k % 13 : 0); }
+}
 function kick(l) {
-  const g = l.g; if (!g || g.auto || g.pend) return;
+  const g = l.g; if (!g) return;
+  if (g.tn !== g.n) { clearTimeout(g.tm); g.tn = g.n; g.until = Date.now() + 45000; g.tm = setTimeout(() => timeUp(l, g), 45000); }
   const c = l.ps.find(q => q.id === g.turn);
-  if (c && c.off) g.auto = setTimeout(() => {
-    g.auto = null; if (l.g !== g || g.pend || g.turn !== c.id || !c.off) return;
+  if (c && c.off && !g.auto) g.auto = setTimeout(() => {
+    g.auto = null; if (l.g !== g || g.turn !== c.id || !c.off) return;
     if (g.last) doPass(l, c); else { const k = g.h[c.id][0]; doPlay(l, c, [k], k < 52 ? k % 13 : 0); }
   }, 2500);
 }
 
 function win(l, p) {
   const g = l.g; if (!g) return;
-  clearTimeout(g.pend); clearTimeout(g.auto);
+  clearTimeout(g.tm); clearTimeout(g.auto);
   const e0 = { t: Date.now(), w: p.name, ps: l.ps.map(q => q.name) };
   l.ps.forEach(q => {
     const e = { ...e0, won: q === p };
@@ -64,7 +71,7 @@ function win(l, p) {
 function leave(p) {
   const l = p.l; clearTimeout(p.dc); P.delete(p.pid); if (!l) return;
   l.ps = l.ps.filter(q => q !== p); p.l = null; p.off = false;
-  if (l.g) { clearTimeout(l.g.pend); clearTimeout(l.g.auto); l.g = null; l.res = p.name + ' left, so the match ended'; }
+  if (l.g) { clearTimeout(l.g.tm); clearTimeout(l.g.auto); l.g = null; l.res = p.name + ' left, so the match ended'; }
   if (!l.ps.length) return L.delete(l.code);
   if (l.host === p.id) l.host = l.ps[0].id;
   push(l);
@@ -76,15 +83,16 @@ function doPlay(l, p, cards, r) {
   const rk = g.rank == null ? r : g.rank; // first player sets the rank, everyone else must follow it
   if (!ids.length || !(rk >= 0 && rk < 13)) return;
   g.h[p.id] = g.h[p.id].filter(i => !ids.includes(i));
-  g.pile.push(...ids); g.rank = rk; g.last = { by: p.id, rank: rk, ids }; g.passes = 0; g.rev = null;
+  g.n++; g.pile.push(...ids); g.rank = rk; g.last = { by: p.id, rank: rk, ids }; g.passes = 0; g.rev = null;
   log(g, `${p.name} played ${ids.length} × ${RK[rk]}`);
-  if (!g.h[p.id].length) { log(g, `${p.name} is out of cards!`); g.pend = setTimeout(() => { if (l.g === g) win(l, p); }, 6000); }
+  if (!g.h[p.id].length) { log(g, `${p.name} is out of cards!`); g.pend = p.id; } // no timer: everyone else must bluff or pass
   g.turn = nxt(g, p.id); push(l);
 }
 function doPass(l, p) {
-  const g = l.g; if (!g || g.turn !== p.id || g.pend || !g.last) return;
-  g.passes++; g.rev = null;
+  const g = l.g; if (!g || g.turn !== p.id || !g.last) return;
+  g.passes++; g.n++; g.rev = null;
   if (g.passes >= g.order.length - 1) {
+    if (g.pend) return win(l, l.ps.find(q => q.id === g.pend));
     log(g, 'Everyone passed. Pile cleared.');
     g.turn = nxt(g, g.last.by); g.pile = []; g.last = null; g.passes = 0; g.rank = null;
   } else { log(g, `${p.name} passed`); g.turn = nxt(g, p.id); }
@@ -92,7 +100,7 @@ function doPass(l, p) {
 }
 function doBluff(l, p) {
   const g = l.g; if (!g || !g.last || g.last.by === p.id) return;
-  clearTimeout(g.pend); g.pend = null;
+  g.pend = null; g.n++;
   const x = g.last, by = l.ps.find(q => q.id === x.by);
   const ok = x.ids.every(i => i < 52 ? i % 13 === x.rank : l.set.wild);
   const loser = ok ? p : by;
@@ -165,7 +173,7 @@ function handle(ws, m) {
       const h = {}; l.ps.forEach(q => h[q.id] = []);
       d.forEach((c, i) => h[l.ps[i % l.ps.length].id].push(c));
       l.res = '';
-      l.g = { h, order: l.ps.map(q => q.id), turn: l.ps[0].id, pile: [], last: null, passes: 0, log: ['Match started'], rev: null, pend: null, auto: null, rank: null };
+      l.g = { h, order: l.ps.map(q => q.id), turn: l.ps[0].id, pile: [], last: null, passes: 0, log: ['Match started'], rev: null, pend: null, auto: null, rank: null, n: 0, tn: -1 };
       push(l); break;
     }
     case 'play': doPlay(l, p, m.cards, m.rank); break;
