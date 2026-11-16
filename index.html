@@ -211,12 +211,12 @@ function home(){const [w,g]=st();
 function tab(i){S.tab=i;anim();R();tx({t:i==1?'rank':'list'})}
 const vc=id=>pcs[id]&&pcs[id].connectionState=='connected'?' '+ic('mic',12):'';
 const fan=n=>n?`<div class="fan">${'<i></i>'.repeat(Math.max(1,Math.min(6,Math.ceil(n/3))))}</div>`:'';
-const seat=(p,g,c)=>`<div class="se p-${c}${g&&g.turn==p.id?' on':''}${p.off?' off':''}" id="seat-${p.id}">${A(p.av,p.name)}<span>${esc(p.name)}${vc(p.id)}</span>${fan(p.n)}${p.off?'<small>offline</small>':''}</div>`;
+const seat=(p,g,c)=>`<div class="se p-${c}${g&&g.turn==p.id?' on':''}${p.off?' off':''}" id="seat-${p.id}">${A(p.av,p.name)}<span>${esc(p.name)}${vc(p.id)}</span>${fan(p.n)}${p.bot?'<small>bot</small>':''}${p.off?'<small>offline</small>':''}</div>`;
 const CH=['Nice play','Hurry up','Bluff?','Oops','Good game'];
 function room(){const L=S.L,g=L.g,nm=id=>(L.players.find(p=>p.id==id)||{}).name;
   const top=`<div class="tp"><button class="ib" onclick="tx({t:'leave'})">${ic('back')}</button><b class="ser">${esc(nm(L.host))}'s table</b><span style="display:flex"><button class="ib ${mt&&!S.mute?'on':''}" onclick="mic()">${ic(mt&&!S.mute?'mic':'micoff')}</button><button class="ib" onclick="S.chat=!S.chat;R()">${ic('chat')}</button><button class="ib" onclick="sheet('help')">${ic('help')}</button><button class="ib" onclick="sheet('set')">${ic('gear')}</button></span></div>`+
     (S.chat?`<div class="chips">${CH.map(c=>`<b onclick="tx({t:'emo',e:'${c}'})">${c}</b>`).join('')}</div>`:'');
-  if(!g)return top+`<div class="lbl">AT THE TABLE</div>`+L.players.map(p=>`<div class="pn who se" id="seat-${p.id}" style="text-align:left">${A(p.av,p.name)}<span><b class="ser" style="font-size:16px">${esc(p.name)}</b>${p.id==L.host?' <small>host</small>':''}${p.off?' <small>offline</small>':''}${vc(p.id)}</span></div>`).join('')+(L.res?`<div class="pn">${esc(L.res)}</div>`:'')+
+  if(!g)return top+`<div class="lbl">AT THE TABLE</div>`+L.players.map(p=>`<div class="pn who se" id="seat-${p.id}" style="text-align:left">${A(p.av,p.name)}<span><b class="ser" style="font-size:16px">${esc(p.name)}</b>${p.id==L.host?' <small>host</small>':''}${p.bot?' <small>bot</small>':''}${p.off?' <small>offline</small>':''}${vc(p.id)}</span>${L.host==L.me&&p.bot?`<button class="lk" style="margin-left:auto" onclick="tx({t:'bot',op:'del',id:'${p.id}'})">Remove</button>`:''}</div>`).join('')+(L.host==L.me&&L.players.length<4?`<button class="big bt" onclick="tx({t:'bot',op:'add'})">${ic('plus',18)} Add a bot</button>`:'')+(L.res?`<div class="pn">${esc(L.res)}</div>`:'')+
     (L.host==L.me?`<button class="big brass" onclick="tx({t:'start'})" ${L.players.length<2?'disabled style="opacity:.4"':''}>Start match</button>`:`<div class="empty">Waiting for the host to start</div>`);
   const i=L.players.findIndex(p=>p.id==L.me),o=[...L.players.slice(i+1),...L.players.slice(0,i)],pos={1:['t'],2:['l','r'],3:['l','t','r']}[o.length]||[];
   const my=[...g.hand].sort((a,b)=>cv(a)-cv(b)),mine=g.turn==L.me,cur=mine&&!g.pend,canB=g.last&&g.last.by!=L.me;
@@ -244,7 +244,7 @@ function SH(){const e=$('#sheet');if(!S.sheet){e.innerHTML='';return}
 ${L?`<div class="row"><span>Voice chat</span><button class="lk" onclick="mic()">${mt?(S.mute?'Unmute':'Mute'):'Turn on'}</button></div>`:''}
 <div class="lbl">DISPLAY</div><div class="row"><span>Table colour</span><span class="th">${[['green','#0f4d3a'],['black','#26262c'],['blue','#1a4a94'],['wine','#7d1f3d']].map(([t,c])=>`<i style="background:${c}" onclick="setT('${t}')"></i>`).join('')}</span></div>
 <div class="row"><span>Landscape</span>${tgl(S.rot,'rotate()')}</div><div class="row"><span>Fullscreen</span><button class="lk" onclick="fs()">Toggle</button></div>
-${host?`<div class="lbl">THIS TABLE</div><div class="row"><span>Jokers are wild</span>${tgl(L.set.wild,`tx({t:'set',wild:${!L.set.wild}})`)}</div>`:''}
+${host?`<div class="lbl">THIS TABLE</div><div class="row"><span>Jokers are wild</span>${tgl(L.set.wild,`tx({t:'set',wild:${!L.set.wild}})`)}</div><div class="row"><span>Smart bots</span>${tgl(L.set.level!='easy',`tx({t:'set',level:'${L.set.level=='easy'?'smart':'easy'}'})`)}</div>`:''}
 <div class="lbl">PROGRESS</div><div class="row"><span>Saved</span><small>${S.me.uid?(S.store=='cloud'?'In the cloud':'On this phone and server'):'Sign in to save'}</small></div>
 <div class="row"><button style="color:#f08c92" onclick="out()">Log out</button></div>`;
   e.innerHTML=`<div class="ov" onclick="if(event.target==this)sheet('')"><div class="sh">${b}</div></div>`}
@@ -277,7 +277,7 @@ function watch(id,st){try{ctx();const src=AC.createMediaStreamSource(st),an=AC.c
   clearInterval(pcs[id].iv);pcs[id].iv=setInterval(()=>{an.getByteFrequencyData(b);const e=$('#seat-'+id);if(e)e.classList.toggle('talk',b.reduce((x,y)=>x+y,0)/b.length>14)},150)}catch{}}
 function peers(){const L=S.L;if(!L)return;
   Object.keys(pcs).forEach(k=>{const p=L.players.find(x=>x.id==k);if(!p||p.off)closePc(k)});
-  L.players.forEach(p=>{if(p.id==L.me||p.off||L.me>p.id)return;const pc=pcs[p.id];
+  L.players.forEach(p=>{if(p.id==L.me||p.off||p.bot||L.me>p.id)return;const pc=pcs[p.id];
     if(!pc||(pc.connectionState!='connected'&&Date.now()-pc.t>12000)){closePc(p.id);mk(p.id,1)}})}
 function closePc(k){const pc=pcs[k];if(pc){clearInterval(pc.iv);pc.close()}delete pcs[k];const a=$('#au'+k);a&&a.remove()}
 apply();R();conn();

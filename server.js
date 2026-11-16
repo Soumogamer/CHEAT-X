@@ -30,7 +30,7 @@ const wss = new WebSocketServer({ server, maxPayload: 60000 });
 const view = (l, p) => {
   const g = l.g;
   return { t: 'lobby', host: l.host, me: p.id, set: l.set, res: l.res,
-    players: l.ps.map(q => ({ id: q.id, name: q.name, av: q.av, off: !!q.off, n: g ? (g.h[q.id] || []).length : 0 })),
+    players: l.ps.map(q => ({ id: q.id, name: q.name, av: q.av, bot: !!q.bot, off: !!q.off, n: g ? (g.h[q.id] || []).length : 0 })),
     g: g && { turn: g.turn, rank: g.rank, left: Math.max(0, (g.until || 0) - Date.now()), pile: g.pile.length, pend: !!g.pend, rev: g.rev, log: g.log, hand: g.h[p.id],
       last: g.last && { by: g.last.by, rank: g.last.rank, n: g.last.ids.length } } };
 };
@@ -50,15 +50,62 @@ function kick(l) {
   const g = l.g; if (!g) return;
   if (g.tn !== g.n) { clearTimeout(g.tm); g.tn = g.n; g.until = Date.now() + 45000; g.tm = setTimeout(() => timeUp(l, g), 45000); }
   const c = l.ps.find(q => q.id === g.turn);
+  if (c && c.bot && !g.bt) g.bt = setTimeout(() => { g.bt = null; if (l.g !== g) return; if (g.turn === c.id) botAct(l, c); else kick(l); }, 1200 + Math.random() * 1800);
+  if (g.last && g.sp !== g.pn) { // a new claim was made: bots may call bluff after a human-like pause
+    g.sp = g.pn; const pn = g.pn;
+    l.ps.filter(q => q.bot && q.id !== g.last.by).forEach(b => setTimeout(() => botCall(l, g, b, pn), 1400 + Math.random() * 2600));
+  }
   if (c && c.off && !g.auto) g.auto = setTimeout(() => {
     g.auto = null; if (l.g !== g || g.turn !== c.id || !c.off) return;
     if (g.last) doPass(l, c); else { const k = g.h[c.id][0]; doPlay(l, c, [k], k < 52 ? k % 13 : 0); }
   }, 2500);
 }
 
+// ---------- bots ----------
+const BOTN = ['Ace', 'Jack', 'Queen', 'King', 'Nova', 'Blaze', 'Dealer', 'Shark'];
+const isRank = (l, c, r) => c < 52 ? c % 13 === r : l.set.wild; // jokers match when wild
+function suspect(l, g, b) { // chance the bot thinks the last claim is a lie
+  const x = g.last, tot = l.set.wild ? 6 : 4, smart = b.lvl !== 'easy';
+  if (g.pend) return 1; // someone is out of cards: calling costs nothing
+  const own = g.h[b.id].filter(c => isRank(l, c, x.rank)).length, n = x.ids.length, avail = tot - own;
+  if (n > avail) return smart ? 1 : 0.6; // more copies claimed than can exist
+  let p = 0.12 + 0.55 * (n / Math.max(avail, 1));
+  if (g.h[x.by].length <= 2) p += 0.25; // close to winning
+  p -= Math.min(0.25, g.pile.length / 60); // a big pile is costly if wrong
+  return smart ? Math.max(0.05, Math.min(0.9, p)) : Math.max(0, Math.min(0.4, p * 0.5));
+}
+function botCall(l, g, b, pn) {
+  if (l.g !== g || g.pn !== pn || !g.last || g.last.by === b.id) return;
+  if (Math.random() < suspect(l, g, b)) doBluff(l, b);
+}
+function botAct(l, b) {
+  const g = l.g; if (!g || g.turn !== b.id) return;
+  if (g.pend) return doBluff(l, b);
+  const h = g.h[b.id], smart = b.lvl !== 'easy', tot = l.set.wild ? 6 : 4;
+  if (g.last && g.last.by !== b.id && Math.random() < suspect(l, g, b) * 0.6) return doBluff(l, b);
+  let r = g.rank;
+  if (r == null) {
+    const cnt = {}; h.forEach(c => { if (c < 52) cnt[c % 13] = (cnt[c % 13] || 0) + 1; });
+    r = +Object.keys(cnt).sort((a, c) => cnt[c] - cnt[a])[0];
+    if (isNaN(r) || (!smart && Math.random() < 0.5)) r = Math.floor(Math.random() * 13);
+  }
+  const mt = h.filter(c => isRank(l, c, r)), junk = h.filter(c => !isRank(l, c, r));
+  let pick = [];
+  if (mt.length) {
+    pick = smart ? mt.slice(0, 4) : mt.slice(0, Math.ceil(Math.random() * mt.length));
+    if (smart && junk.length && Math.random() < 0.25) pick.push(junk[0]); // hide a bluff card among real ones
+  } else {
+    if (g.last && Math.random() < (smart ? 0.35 : 0.5)) return doPass(l, b);
+    pick = junk.slice(0, 1 + (smart && junk.length > 6 && Math.random() < 0.5 ? 1 : 0));
+  }
+  pick = pick.slice(0, tot);
+  if (!pick.length) pick = [h[0]];
+  doPlay(l, b, pick, r);
+}
+
 function win(l, p) {
   const g = l.g; if (!g) return;
-  clearTimeout(g.tm); clearTimeout(g.auto);
+  clearTimeout(g.tm); clearTimeout(g.auto); clearTimeout(g.bt);
   const e0 = { t: Date.now(), w: p.name, ps: l.ps.map(q => q.name) };
   l.ps.forEach(q => {
     const e = { ...e0, won: q === p };
@@ -71,9 +118,10 @@ function win(l, p) {
 function leave(p) {
   const l = p.l; clearTimeout(p.dc); P.delete(p.pid); if (!l) return;
   l.ps = l.ps.filter(q => q !== p); p.l = null; p.off = false;
-  if (l.g) { clearTimeout(l.g.tm); clearTimeout(l.g.auto); l.g = null; l.res = p.name + ' left, so the match ended'; }
-  if (!l.ps.length) return L.delete(l.code);
-  if (l.host === p.id) l.host = l.ps[0].id;
+  if (l.g) { clearTimeout(l.g.tm); clearTimeout(l.g.auto); clearTimeout(l.g.bt); l.g = null; l.res = p.name + ' left, so the match ended'; }
+  const hum = l.ps.filter(q => !q.bot);
+  if (!hum.length) return L.delete(l.code);
+  if (l.host === p.id) l.host = hum[0].id;
   push(l);
 }
 
@@ -83,7 +131,7 @@ function doPlay(l, p, cards, r) {
   const rk = g.rank == null ? r : g.rank; // first player sets the rank, everyone else must follow it
   if (!ids.length || !(rk >= 0 && rk < 13)) return;
   g.h[p.id] = g.h[p.id].filter(i => !ids.includes(i));
-  g.n++; g.pile.push(...ids); g.rank = rk; g.last = { by: p.id, rank: rk, ids }; g.passes = 0; g.rev = null;
+  g.n++; g.pn = g.n; g.pile.push(...ids); g.rank = rk; g.last = { by: p.id, rank: rk, ids }; g.passes = 0; g.rev = null;
   log(g, `${p.name} played ${ids.length} × ${RK[rk]}`);
   if (!g.h[p.id].length) { log(g, `${p.name} is out of cards!`); g.pend = p.id; } // no timer: everyone else must bluff or pass
   g.turn = nxt(g, p.id); push(l);
@@ -163,7 +211,7 @@ function handle(ws, m) {
     case 'create': {
       if (l) return;
       let code; do { code = rid(2); } while (L.has(code));
-      const nl = { code, host: p.id, ps: [p], set: { wild: true }, g: null, res: '' };
+      const nl = { code, host: p.id, ps: [p], set: { wild: true, level: 'smart' }, g: null, res: '' };
       L.set(code, nl); p.l = nl; p.pid = p.pid || rid(8); P.set(p.pid, p); push(nl); break;
     }
     case 'join': {
@@ -175,7 +223,20 @@ function handle(ws, m) {
       t.ps.push(p); p.l = t; t.res = ''; p.pid = p.pid || rid(8); P.set(p.pid, p); push(t); break;
     }
     case 'leave': leave(p); send(p.ws, { t: 'left' }); break;
-    case 'set': if (l && !g && l.host === p.id) { l.set = { wild: !!m.wild }; push(l); } break;
+    case 'set':
+      if (l && !g && l.host === p.id) {
+        l.set = { ...l.set, ...(m.wild !== undefined && { wild: !!m.wild }), ...(m.level && { level: m.level === 'easy' ? 'easy' : 'smart' }) };
+        l.ps.forEach(q => { if (q.bot) q.lvl = l.set.level; }); push(l);
+      } break;
+    case 'bot': {
+      if (!l || g || l.host !== p.id) return;
+      if (m.op === 'add') {
+        if (l.ps.length >= 4) return err(p, 'The table is full');
+        const nm = BOTN.find(n => !l.ps.some(q => q.name === n)) || 'Bot';
+        l.ps.push({ id: rid(4), name: nm, av: 'c:' + crypto.randomInt(20), bot: 1, lvl: l.set.level, ws: null, l, u: null, ready: 1 });
+      } else if (m.op === 'del') l.ps = l.ps.filter(q => !(q.bot && q.id === m.id));
+      push(l); break;
+    }
     case 'start': {
       if (!l || g || l.host !== p.id) return;
       if (l.ps.length < 2) return err(p, 'Need at least 2 players');
