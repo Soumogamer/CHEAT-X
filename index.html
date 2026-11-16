@@ -64,17 +64,21 @@ body.ls .a{width:32px;height:32px;font-size:15px}body.ls .tbl{min-height:80px;pa
 .splash{text-align:center;padding-top:16vh}.splash h1{font-size:64px;margin:0;letter-spacing:2px}
 #toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#000e;padding:10px 16px;border-radius:20px;display:none;z-index:60;font-size:14px}
 @media(prefers-reduced-motion:reduce){.up{animation:none}}
+.em{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;font-size:22px;text-align:center;margin:8px 0}.em span{border-radius:10px;padding:3px 0}.em .sel{background:var(--br)}
 </style></head><body>
 <div id="app"></div><div id="sheet"></div><div id="toast"></div>
 <script>
 const RK='A,2,3,4,5,6,7,8,9,10,J,Q,K'.split(','),SU='♠♥♦♣';
 const COL=['#8a3b3b','#b3622e','#c9a24b','#7a8a3b','#3b8a5a','#3b8a8a','#3b6a8a','#4a4a9a','#7a4a9a','#9a4a7a','#6b1d2a','#8a5a3b','#a38a3b','#4a7a3b','#2e6b4a','#2e5a6b','#2e3b6b','#5a2e6b','#6b2e4a','#555555'];
+const EM=Array.from('🦊🐼🐯🦁🐸🐵🐧🦄🐙🦉🐺🐨🐰🐻🦈🐲🦖🐝🦋🐢');
+const emoGrid=()=>`<small>Or pick an emoji</small><div class="em">${EM.map(e=>`<span class="${S.me.av==e?'sel':''}" onclick="setEmo('${e}')">${e}</span>`).join('')}</div>`;
 const IC={back:'<path d="M15 6l-6 6 6 6"/>',mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3"/>',micoff:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0014 0M12 18v3M4 4l16 16"/>',gear:'<path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/>',help:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 115 0c0 1.5-2.5 2-2.5 3.5M12 17h.01"/>',plus:'<path d="M12 5v14M5 12h14"/>',cards:'<rect x="4" y="5" width="11" height="15" rx="2"/><path d="M9 3h9a2 2 0 012 2v12"/>',trophy:'<path d="M8 4h8v6a4 4 0 01-8 0zM8 6H4v1a3 3 0 003 3M16 6h4v1a3 3 0 01-3 3M12 14v4M8 20h8"/>',hist:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',chat:'<path d="M4 5h16v11H9l-5 4z"/>',lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>'};
 const ic=(n,s=22)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n]}</svg>`;
 const $=s=>document.querySelector(s),val=i=>$('#'+i).value.trim(),J=(k,d)=>JSON.parse(localStorage[k]||d);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const A=(a,n)=>{if(a&&a.startsWith('data:'))return `<span class="a"><img src="${esc(a)}"></span>`;
-  const i=a&&a.startsWith('c:')?(+a.slice(2))%20:[...String(a||'')].reduce((x,c)=>x+c.charCodeAt(0),0)%20;
+  if(a&&!a.startsWith('c:'))return `<span class="a" style="background:#2a2019;font-size:24px">${esc(a)}</span>`;
+  const i=(+String(a||'c:0').slice(2))%20;
   return `<span class="a" style="background:${COL[i]}">${esc(((n||'?').trim()[0]||'?').toUpperCase())}</span>`};
 const PID=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2,12)+Date.now().toString(36));
 let S={me:{av:'c:0',name:''},scr:'splash',tab:0,sel:new Set(),rk:null,ls:[],rank:[],hist:J('h','[]'),L:null,sheet:'',edit:0,chat:0,on:0,rot:0,snd:localStorage.snd!='0',vol:+(localStorage.vol||.7),store:''};
@@ -179,13 +183,14 @@ async function rotate(){S.rot=!S.rot;try{if(S.rot){await document.documentElemen
 const st=()=>S.me.uid?[S.me.wins||0,S.me.games||0]:J('st','[0,0]');
 function auth(){return `<div class="auth"><h1>Bluff</h1><small>A card game for friends</small>
 <div class="r2">${A(S.me.av,S.me.name||'?')}<div style="flex:1"><small>Your name</small><input id="n" placeholder="Name" maxlength="14" value="${esc(S.me.name||'')}"></div></div>
-<small>Pick a colour, or add a photo</small><div class="sw">${COL.map((c,i)=>`<i class="${S.me.av=='c:'+i?'sel':''}" style="background:${c}" onclick="setAv(${i})"></i>`).join('')}</div>
+<small>Pick a colour, or add a photo</small><div class="sw">${COL.map((c,i)=>`<i class="${S.me.av=='c:'+i?'sel':''}" style="background:${c}" onclick="setAv(${i})"></i>`).join('')}</div>${emoGrid()}
 <label class="lk" style="display:block;margin-bottom:10px">Add a photo<input type="file" accept="image/*" hidden onchange="pick(this)"></label>
 <button class="big brass" onclick="guest()">Continue as guest</button><div class="lbl">SAVE YOUR PROGRESS</div>
 <input id="u" placeholder="ID" autocapitalize="none"><input id="p" type="password" placeholder="Password">
 <div class="r2" style="margin-top:6px"><button class="bt" onclick="acct('login')">Log in</button><button class="bt" onclick="acct('signup')">Create account</button></div>
 <small style="display:block;text-align:center;margin-top:14px">You stay signed in on this phone</small></div>`}
 const nmv=()=>($('#sn')||$('#n')||{value:''}).value.trim();
+const setEmo=e=>{S.me.name=nmv();S.me.av=e;S.scr=='auth'?R():SH()};
 const setAv=i=>{S.me.name=nmv();S.me.av='c:'+i;S.scr=='auth'?R():SH()};
 const keep=()=>{if(!S.me.uid)localStorage.prof=JSON.stringify({name:nmv(),av:S.me.av})};
 const guest=()=>{keep();tx({t:'guest',name:val('n'),av:S.me.av})};
@@ -231,7 +236,7 @@ function SH(){const e=$('#sheet');if(!S.sheet){e.innerHTML='';return}
   const L=S.L,host=L&&L.host==L.me&&!L.g;
   let b;
   if(S.sheet=='help')b=`<div class="bar"><b class="ser" style="font-size:20px">How to play</b><button class="lk" onclick="sheet('')">Done</button></div>`+['The first player of a round picks a rank (A to K) and plays cards face down, saying they are that rank.','Everyone after must claim the same rank: play cards, pass, or call bluff.','On a bluff call the cards are shown. If every card matched the rank, the caller takes the pile and the player starts the next round. If not, the player takes the pile and the caller starts.','If everyone passes, the pile is cleared and the next player starts a new round.','Empty your hand to win, once the others pass or fail to catch a bluff on your last cards.','You have 45 seconds per turn.'].map((t,i)=>`<div class="row" style="align-items:flex-start"><b class="ser" style="color:var(--br)">${i+1}</b><span style="flex:1">${t}</span></div>`).join('');
-  else if(S.edit)b=`<div class="bar"><b class="ser" style="font-size:20px">Edit profile</b></div><div class="r2" style="margin-top:10px">${A(S.me.av,S.me.name)}<input id="sn" maxlength="14" value="${esc(S.me.name)}"></div><div class="sw">${COL.map((c,i)=>`<i class="${S.me.av=='c:'+i?'sel':''}" style="background:${c}" onclick="setAv(${i})"></i>`).join('')}</div><label class="lk" style="display:block;margin:6px 0 12px">Add a photo<input type="file" accept="image/*" hidden onchange="pick(this)"></label><div class="r2"><button class="bt" onclick="S.edit=0;SH()">Cancel</button><button class="bt brass" onclick="saveP()">Save</button></div>`;
+  else if(S.edit)b=`<div class="bar"><b class="ser" style="font-size:20px">Edit profile</b></div><div class="r2" style="margin-top:10px">${A(S.me.av,S.me.name)}<input id="sn" maxlength="14" value="${esc(S.me.name)}"></div><div class="sw">${COL.map((c,i)=>`<i class="${S.me.av=='c:'+i?'sel':''}" style="background:${c}" onclick="setAv(${i})"></i>`).join('')}</div>${emoGrid()}<label class="lk" style="display:block;margin:6px 0 12px">Add a photo<input type="file" accept="image/*" hidden onchange="pick(this)"></label><div class="r2"><button class="bt" onclick="S.edit=0;SH()">Cancel</button><button class="bt brass" onclick="saveP()">Save</button></div>`;
   else b=`<div class="bar"><b class="ser" style="font-size:20px">Settings</b><button class="lk" onclick="sheet('')">Done</button></div>
 <div class="lbl">PROFILE</div><div class="row"><span class="who">${A(S.me.av,S.me.name)}<b class="ser" style="font-size:16px">${esc(S.me.name)}</b></span><button class="lk" onclick="S.edit=1;SH()">Edit</button></div>
 <div class="lbl">SOUND AND VOICE</div><div class="row"><span>Sound effects</span>${tgl(S.snd,'setSnd()')}</div>
