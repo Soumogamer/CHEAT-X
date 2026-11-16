@@ -14,7 +14,7 @@ const save = () => { clearTimeout(tm); tm = setTimeout(() => { const s = JSON.st
 const rid = n => crypto.randomBytes(n).toString('hex');
 const hash = (p, s) => crypto.scryptSync(String(p), s, 32).toString('hex');
 const clean = (s, n) => String(s || '').trim().slice(0, n);
-const av = a => typeof a === 'string' && (a.length <= 8 || (a.startsWith('data:image/') && a.length < 30000)) ? a : '🙂';
+const av = a => typeof a === 'string' && (a.length <= 8 || (a.startsWith('data:image/') && a.length < 30000)) ? a : 'c:0';
 const send = (w, o) => w && w.readyState === 1 && w.send(JSON.stringify(o));
 const err = (p, m) => send(p.ws, { t: 'err', m });
 const RK = 'A,2,3,4,5,6,7,8,9,10,J,Q,K'.split(',');
@@ -36,7 +36,7 @@ const view = (l, p) => {
 };
 function push(l) { kick(l); l.ps.forEach(p => send(p.ws, view(l, p))); }
 const me = p => { const u = p.u && db.users[p.u];
-  send(p.ws, { t: 'me', uid: p.u, name: p.name, av: p.av, ice: ICE, inl: !!p.l, ...(u && { tok: u.tok, hist: u.hist, wins: u.wins || 0, games: u.games || 0 }) }); };
+  send(p.ws, { t: 'me', uid: p.u, name: p.name, av: p.av, ice: ICE, inl: !!p.l, store: RU ? 'cloud' : 'local', ...(u && { tok: u.tok, hist: u.hist, wins: u.wins || 0, games: u.games || 0 }) }); };
 const login = (p, id) => { const u = db.users[id]; p.u = id; p.name = u.name; p.av = u.av; p.ready = 1; };
 
 // 45 seconds per turn; offline players are played for after a short wait
@@ -109,7 +109,7 @@ function doBluff(l, p) {
   g.pile = []; g.last = null; g.passes = 0;
   log(g, `${p.name} called bluff: ${ok ? 'it was true' : 'it was a bluff'}! ${loser.name} takes the pile`);
   if (ok && !g.h[by.id].length) return win(l, by);
-  g.rank = null; g.turn = p.id; push(l); // the player who called bluff starts the next round
+  g.rank = null; g.turn = ok ? by.id : p.id; g.rev.next = g.turn; push(l); // the winner of the challenge starts the next round
 }
 
 function handle(ws, m) {
@@ -118,7 +118,18 @@ function handle(ws, m) {
     case 'hello': {
       const pid = clean(m.pid, 40) || rid(8), old = P.get(pid);
       if (old && old.ws !== ws) { clearTimeout(old.dc); old.off = false; old.ws = ws; ws.p = p = old; } else p.pid = pid;
-      if (m.tok) { const id = Object.keys(db.users).find(k => db.users[k].tok === m.tok); if (id) login(p, id); }
+      if (m.tok) {
+        let id = Object.keys(db.users).find(k => db.users[k].tok === m.tok);
+        const a = m.acct, u = a && String(a.uid || '').toLowerCase();
+        // server data was lost (free hosting restarts): rebuild this account from the phone's saved copy
+        if (!id && u && /^\w{3,20}$/.test(u) && !db.users[u] && /^[0-9a-f]{32}$/.test(m.tok)) {
+          db.users[u] = { salt: '', h: '', name: clean(a.name, 14) || u, av: av(a.av), tok: m.tok,
+            hist: Array.isArray(a.hist) ? a.hist.slice(0, 20).map(e => ({ t: +e.t || 0, w: clean(e.w, 14), won: !!e.won, ps: (e.ps || []).slice(0, 4).map(x => clean(x, 14)) })) : [],
+            wins: Math.min(+a.wins || 0, 9999), games: Math.min(+a.games || 0, 9999) };
+          id = u; save();
+        }
+        if (id) login(p, id);
+      }
       else if (m.name) { p.name = clean(m.name, 14); p.av = av(m.av); p.ready = 1; }
       me(p); if (p.l) push(p.l); break;
     }
@@ -179,7 +190,7 @@ function handle(ws, m) {
     case 'play': doPlay(l, p, m.cards, m.rank); break;
     case 'pass': doPass(l, p); break;
     case 'bluff': doBluff(l, p); break;
-    case 'emo': if (l) l.ps.forEach(q => send(q.ws, { t: 'emo', from: p.id, e: clean(m.e, 4) })); break;
+    case 'emo': if (l) l.ps.forEach(q => send(q.ws, { t: 'emo', from: p.id, e: clean(m.e, 24) })); break;
     case 'rtc': {
       const q = l && l.ps.find(x => x.id === m.to);
       if (q) send(q.ws, { t: 'rtc', from: p.id, data: m.data });
@@ -189,7 +200,7 @@ function handle(ws, m) {
 }
 
 wss.on('connection', ws => {
-  ws.p = { ws, id: rid(4), name: '', av: '🙂', u: null, l: null, ready: 0 };
+  ws.p = { ws, id: rid(4), name: '', av: 'c:0', u: null, l: null, ready: 0 };
   ws.on('message', raw => { let m; try { m = JSON.parse(raw); } catch { return; } try { handle(ws, m); } catch (e) { console.error(e); } });
   ws.on('close', () => {
     const p = ws.p; if (p.ws !== ws || !p.l) return;
