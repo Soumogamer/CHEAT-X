@@ -29,12 +29,12 @@ const wss = new WebSocketServer({ server, maxPayload: 60000 });
 
 const view = (l, p) => {
   const g = l.g;
-  return { t: 'lobby', host: l.host, me: p.id, set: l.set, res: l.res,
+  return { t: 'lobby', host: l.host, me: p.id, watch: !!p.spec, specN: (l.spec || []).length, set: l.set, res: l.res,
     players: l.ps.map(q => ({ id: q.id, name: q.name, av: q.av, bot: !!q.bot, off: !!q.off, n: g ? (g.h[q.id] || []).length : 0 })),
-    g: g && { turn: g.turn, rank: g.rank, left: Math.max(0, (g.until || 0) - Date.now()), pile: g.pile.length, pend: !!g.pend, rev: g.rev, log: g.log, hand: g.h[p.id],
+    g: g && { turn: g.turn, rank: g.rank, left: Math.max(0, (g.until || 0) - Date.now()), pile: g.pile.length, pend: !!g.pend, rev: g.rev, log: g.log, hand: g.h[p.id] || [],
       last: g.last && { by: g.last.by, rank: g.last.rank, n: g.last.ids.length } } };
 };
-function push(l) { kick(l); l.ps.forEach(p => send(p.ws, view(l, p))); }
+function push(l) { kick(l); [...l.ps, ...(l.spec || [])].forEach(p => send(p.ws, view(l, p))); }
 const me = p => { const u = p.u && db.users[p.u];
   send(p.ws, { t: 'me', uid: p.u, name: p.name, av: p.av, ice: ICE, inl: !!p.l, store: RU ? 'cloud' : 'local', ...(u && { tok: u.tok, hist: u.hist, wins: u.wins || 0, games: u.games || 0 }) }); };
 const login = (p, id) => { const u = db.users[id]; p.u = id; p.name = u.name; p.av = u.av; p.ready = 1; };
@@ -50,11 +50,7 @@ function kick(l) {
   const g = l.g; if (!g) return;
   if (g.tn !== g.n) { clearTimeout(g.tm); g.tn = g.n; g.until = Date.now() + 45000; g.tm = setTimeout(() => timeUp(l, g), 45000); }
   const c = l.ps.find(q => q.id === g.turn);
-  if (c && c.bot && !g.bt) g.bt = setTimeout(() => { g.bt = null; if (l.g !== g) return; if (g.turn === c.id) botAct(l, c); else kick(l); }, 1200 + Math.random() * 1800);
-  if (g.last && g.sp !== g.pn) { // a new claim was made: bots may call bluff after a human-like pause
-    g.sp = g.pn; const pn = g.pn;
-    l.ps.filter(q => q.bot && q.id !== g.last.by).forEach(b => setTimeout(() => botCall(l, g, b, pn), 1400 + Math.random() * 2600));
-  }
+  if (c && c.bot && !g.bt) g.bt = setTimeout(() => { g.bt = null; if (l.g !== g) return; if (g.turn === c.id) botAct(l, c); else kick(l); }, botDelay(l));
   if (c && c.off && !g.auto) g.auto = setTimeout(() => {
     g.auto = null; if (l.g !== g || g.turn !== c.id || !c.off) return;
     if (g.last) doPass(l, c); else { const k = g.h[c.id][0]; doPlay(l, c, [k], k < 52 ? k % 13 : 0); }
@@ -74,15 +70,12 @@ function suspect(l, g, b) { // chance the bot thinks the last claim is a lie
   p -= Math.min(0.25, g.pile.length / 60); // a big pile is costly if wrong
   return smart ? Math.max(0.05, Math.min(0.9, p)) : Math.max(0, Math.min(0.4, p * 0.5));
 }
-function botCall(l, g, b, pn) {
-  if (l.g !== g || g.pn !== pn || !g.last || g.last.by === b.id) return;
-  if (Math.random() < suspect(l, g, b)) doBluff(l, b);
-}
+const botDelay = l => { const v = l.set.speed || 'slow'; return v === 'fast' ? 700 + Math.random() * 800 : v === 'normal' ? 1800 + Math.random() * 1700 : 3500 + Math.random() * 3000; };
 function botAct(l, b) {
   const g = l.g; if (!g || g.turn !== b.id) return;
   if (g.pend) return doBluff(l, b);
   const h = g.h[b.id], smart = b.lvl !== 'easy', tot = l.set.wild ? 6 : 4;
-  if (g.last && g.last.by !== b.id && Math.random() < suspect(l, g, b) * 0.6) return doBluff(l, b);
+  if (g.last && g.last.by !== b.id && Math.random() < suspect(l, g, b)) return doBluff(l, b);
   let r = g.rank;
   if (r == null) {
     const cnt = {}; h.forEach(c => { if (c < 52) cnt[c % 13] = (cnt[c % 13] || 0) + 1; });
@@ -117,10 +110,11 @@ function win(l, p) {
 
 function leave(p) {
   const l = p.l; clearTimeout(p.dc); P.delete(p.pid); if (!l) return;
+  if (p.spec) { l.spec = l.spec.filter(q => q !== p); p.l = null; p.spec = false; push(l); return; }
   l.ps = l.ps.filter(q => q !== p); p.l = null; p.off = false;
   if (l.g) { clearTimeout(l.g.tm); clearTimeout(l.g.auto); clearTimeout(l.g.bt); l.g = null; l.res = p.name + ' left, so the match ended'; }
   const hum = l.ps.filter(q => !q.bot);
-  if (!hum.length) return L.delete(l.code);
+  if (!hum.length) { (l.spec || []).forEach(q => { q.l = null; q.spec = false; send(q.ws, { t: 'left' }); }); return L.delete(l.code); }
   if (l.host === p.id) l.host = hum[0].id;
   push(l);
 }
@@ -147,7 +141,7 @@ function doPass(l, p) {
   push(l);
 }
 function doBluff(l, p) {
-  const g = l.g; if (!g || !g.last || g.last.by === p.id) return;
+  const g = l.g; if (!g || !g.last || g.last.by === p.id || g.turn !== p.id) return;
   g.pend = null; g.n++;
   const x = g.last, by = l.ps.find(q => q.id === x.by);
   const ok = x.ids.every(i => i < 52 ? i % 13 === x.rank : l.set.wild);
@@ -200,8 +194,8 @@ function handle(ws, m) {
       if (p.u) { Object.assign(db.users[p.u], { name: p.name, av: p.av }); save(); }
       me(p); if (l) push(l); break;
     case 'list':
-      send(p.ws, { t: 'list', ls: [...L.values()].filter(x => !x.g && x.ps.length < 4)
-        .map(x => ({ code: x.code, host: x.ps.find(q => q.id === x.host).name, n: x.ps.length, avs: x.ps.map(q => q.av) })) }); break;
+      send(p.ws, { t: 'list', ls: [...L.values()]
+        .map(x => ({ code: x.code, host: x.ps.find(q => q.id === x.host).name, n: x.ps.length, avs: x.ps.map(q => q.av), live: !!x.g, w: (x.spec || []).length })) }); break;
     case 'users':
       send(p.ws, { t: 'users', us: [...wss.clients].map(c => c.p).filter(q => q && q.ready)
         .map(q => ({ name: q.name, av: q.av, st: q.l ? (q.l.g ? 'In a match' : 'In a lobby') : 'Online' })) }); break;
@@ -211,20 +205,26 @@ function handle(ws, m) {
     case 'create': {
       if (l) return;
       let code; do { code = rid(2); } while (L.has(code));
-      const nl = { code, host: p.id, ps: [p], set: { wild: true, level: 'smart' }, g: null, res: '' };
+      const nl = { code, host: p.id, ps: [p], set: { wild: true, level: 'smart', speed: 'slow' }, g: null, res: '', spec: [] };
       L.set(code, nl); p.l = nl; p.pid = p.pid || rid(8); P.set(p.pid, p); push(nl); break;
     }
     case 'join': {
       if (l) return;
       const t = L.get(clean(m.code, 8));
       if (!t) return err(p, 'Lobby not found');
+      if (m.watch) { t.spec = t.spec || []; t.spec.push(p); p.spec = true; p.l = t; p.pid = p.pid || rid(8); P.set(p.pid, p); push(t); break; }
       if (t.ps.length >= 4) return err(p, 'Lobby is full');
       if (t.g) return err(p, 'Match already started');
       t.ps.push(p); p.l = t; t.res = ''; p.pid = p.pid || rid(8); P.set(p.pid, p); push(t); break;
     }
+    case 'sit': {
+      if (!l || !p.spec || g || l.ps.length >= 4) return;
+      l.spec = l.spec.filter(q => q !== p); p.spec = false; l.ps.push(p); l.res = ''; push(l); break;
+    }
     case 'leave': leave(p); send(p.ws, { t: 'left' }); break;
     case 'set':
-      if (l && !g && l.host === p.id) {
+      if (l && l.host === p.id && m.speed) { l.set = { ...l.set, speed: ['slow', 'normal', 'fast'].includes(m.speed) ? m.speed : 'slow' }; push(l); }
+      else if (l && !g && l.host === p.id) {
         l.set = { ...l.set, ...(m.wild !== undefined && { wild: !!m.wild }), ...(m.level && { level: m.level === 'easy' ? 'easy' : 'smart' }) };
         l.ps.forEach(q => { if (q.bot) q.lvl = l.set.level; }); push(l);
       } break;
@@ -251,7 +251,7 @@ function handle(ws, m) {
     case 'play': doPlay(l, p, m.cards, m.rank); break;
     case 'pass': doPass(l, p); break;
     case 'bluff': doBluff(l, p); break;
-    case 'emo': if (l) l.ps.forEach(q => send(q.ws, { t: 'emo', from: p.id, e: clean(m.e, 24) })); break;
+    case 'emo': if (l) [...l.ps, ...(l.spec || [])].forEach(q => send(q.ws, { t: 'emo', from: p.id, e: clean(m.e, 24) })); break;
     case 'rtc': {
       const q = l && l.ps.find(x => x.id === m.to);
       if (q) send(q.ws, { t: 'rtc', from: p.id, data: m.data });

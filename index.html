@@ -17,7 +17,7 @@ small,.mu{color:var(--mu);font-size:12px}
 input{width:100%;padding:13px;border-radius:10px;border:1px solid var(--ln);background:#1a1410;color:var(--cr);font-size:16px;margin:6px 0}input[type=range]{accent-color:var(--br);padding:0;width:55%}
 .tp,.bar,.row{display:flex;align-items:center;justify-content:space-between;gap:10px}.tp{margin-bottom:10px}.tp b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:17px}
 .who{display:flex;align-items:center;gap:12px}.who b{font-size:18px;display:block}
-.a{width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:600 18px Georgia,serif;color:#fff;overflow:hidden;flex:none;border:1.5px solid var(--br)}.a img{width:100%;height:100%;object-fit:cover}
+.a{line-height:1;width:42px;height:42px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font:600 18px Georgia,serif;color:#fff;overflow:hidden;flex:none;border:1.5px solid var(--br)}.a img{width:100%;height:100%;object-fit:cover}
 .lbl{font-size:11px;letter-spacing:1.6px;color:var(--mu);margin:16px 2px 4px}
 .pn{background:var(--pn);border-radius:14px;padding:12px;margin:8px 0}.row{padding:11px 0;border-top:1px solid #2e241a}
 .dots i{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--br);margin-left:4px}.dots i.o{background:var(--ln)}
@@ -29,10 +29,10 @@ nav b{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12
 .sw{display:grid;grid-template-columns:repeat(10,1fr);gap:6px;margin:8px 0}.sw i{aspect-ratio:1;border-radius:50%;border:2px solid transparent}.sw i.sel{border-color:var(--cr)}
 .ban{background:#7a4a14;border-radius:10px;padding:8px;text-align:center;margin-bottom:8px;font-size:13px}
 .gm{display:flex;flex-direction:column;gap:10px;min-height:calc(100dvh - 90px)}body.rot .gm{min-height:calc(100vw - 90px)}
-.gt{display:grid;grid-template-columns:62px minmax(0,1fr) 62px;grid-template-rows:auto 1fr;gap:8px;align-items:center;flex:1}
-.p-t{grid-area:1/2}.p-l{grid-area:2/1}.p-r{grid-area:2/3}
-.se{text-align:center;font-size:13px;line-height:1.35;min-width:0}.se>span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.se .a{margin-bottom:3px}.se.on .a{box-shadow:0 0 0 3px var(--br)}.se.off{opacity:.5}.se.talk .a{box-shadow:0 0 0 3px #4ade80}
+.gt{display:grid;grid-template-columns:62px minmax(0,1fr) 62px;grid-template-rows:auto 1fr auto;gap:8px;align-items:center;flex:1}
+.p-b{grid-area:3/2}.p-t{grid-area:1/2}.p-l{grid-area:2/1}.p-r{grid-area:2/3}
+.se{text-align:center;font-size:13px;line-height:1.35;min-width:0}.se>span:not(.a){display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.se .a{margin:0 auto 3px}.se.on .a{box-shadow:0 0 0 3px var(--br)}.se.off{opacity:.5}.se.talk .a{box-shadow:0 0 0 3px #4ade80}
 .fan{display:flex;justify-content:center;height:18px;margin-top:3px}.fan i{width:12px;height:17px;border-radius:2px;background:var(--cb);border:1px solid var(--br);margin-left:-6px}.fan i:first-child{margin:0}
 .wood{grid-area:2/2;align-self:stretch;background:var(--wd);border-radius:42px;padding:6px}
 .tbl{height:100%;min-height:140px;background:var(--fe);border-radius:36px;padding:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center}
@@ -65,6 +65,7 @@ body.ls .a{width:32px;height:32px;font-size:15px}body.ls .tbl{min-height:80px;pa
 #toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#000e;padding:10px 16px;border-radius:20px;display:none;z-index:60;font-size:14px}
 @media(prefers-reduced-motion:reduce){.up{animation:none}}
 .em{display:grid;grid-template-columns:repeat(10,1fr);gap:4px;font-size:22px;text-align:center;margin:8px 0}.em span{border-radius:10px;padding:3px 0}.em .sel{background:var(--br)}
+.seg{display:flex;border:1px solid var(--ln);border-radius:10px;overflow:hidden}.seg b{padding:7px 12px;font-size:13px;font-weight:500}.seg .on{background:var(--br);color:#14100d}
 </style></head><body>
 <div id="app"></div><div id="sheet"></div><div id="toast"></div>
 <script>
@@ -81,19 +82,22 @@ const A=(a,n)=>{if(a&&a.startsWith('data:'))return `<span class="a"><img src="${
   const i=(+String(a||'c:0').slice(2))%20;
   return `<span class="a" style="background:${COL[i]}">${esc(((n||'?').trim()[0]||'?').toUpperCase())}</span>`};
 const PID=localStorage.pid||(localStorage.pid=Math.random().toString(36).slice(2,12)+Date.now().toString(36));
-let S={me:{av:'c:0',name:''},scr:'splash',tab:0,sel:new Set(),rk:null,ls:[],rank:[],hist:J('h','[]'),L:null,sheet:'',edit:0,chat:0,on:0,rot:0,snd:localStorage.snd!='0',vol:+(localStorage.vol||.7),store:''};
+let S={me:{av:'c:0',name:''},scr:'splash',tab:0,sel:new Set(),rk:null,ls:[],rank:[],hist:J('h','[]'),L:null,sheet:'',edit:0,chat:0,on:0,rot:0,snd:localStorage.snd!='0',vol:+(localStorage.vol||.5),store:''};
 let ws,ICE=[{urls:'stun:stun.l.google.com:19302'}],ms=null,mt=null,pcs={},AC=null;
 const RR=()=>{clearTimeout(RR.t);RR.t=setTimeout(()=>{const a=document.activeElement;if(a&&a.tagName=='INPUT')return;R()},120)};
 function anim(){S.anim=1;clearTimeout(anim.t);anim.t=setTimeout(()=>S.anim=0,900)}
 function toast(s){const t=$('#toast');t.textContent=s;t.style.display='block';clearTimeout(t.k);t.k=setTimeout(()=>t.style.display='none',2600)}
 /* ---------- sound ---------- */
 const ctx=()=>{AC=AC||new(window.AudioContext||window.webkitAudioContext)();if(AC.state=='suspended')AC.resume();return AC};
-function snd(k){if(!S.snd)return;try{ctx();const t=AC.currentTime,v=S.vol;
-  const noise=(d,f,g0,q=1)=>{const b=AC.createBuffer(1,AC.sampleRate*d,AC.sampleRate),x=b.getChannelData(0);for(let i=0;i<x.length;i++)x[i]=(Math.random()*2-1)*(1-i/x.length);
-    const s=AC.createBufferSource();s.buffer=b;const fl=AC.createBiquadFilter();fl.type='bandpass';fl.frequency.value=f;fl.Q.value=q;const g=AC.createGain();g.gain.value=g0*v;s.connect(fl);fl.connect(g);g.connect(AC.destination);s.start(t)};
-  const tone=(f,d,g0,dl=0,ty='sine')=>{const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.value=f;g.gain.setValueAtTime(.0001,t+dl);g.gain.exponentialRampToValueAtTime(g0*v,t+dl+.02);g.gain.exponentialRampToValueAtTime(.0001,t+dl+d);o.connect(g);g.connect(AC.destination);o.start(t+dl);o.stop(t+dl+d+.05)};
-  const M={play:()=>{noise(.13,2400,1.1,.8);noise(.06,800,.7)},deal:()=>noise(.08,3200,.6,1.2),pick:()=>tone(660,.07,.18),turn:()=>{tone(523,.2,.22);tone(784,.25,.22,.12)},bluff:()=>{tone(110,.5,.5,0,'sawtooth');noise(.3,300,.8)},win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.3,.24,i*.12)),lose:()=>[392,330,262].forEach((f,i)=>tone(f,.3,.22,i*.14))};
-  M[k]&&M[k]()}catch{}}
+let MG=null;
+function snd(k){if(!S.snd)return;try{ctx();if(!MG){MG=AC.createGain();const c=AC.createDynamicsCompressor();MG.connect(c);c.connect(AC.destination)}
+  const t=AC.currentTime,v=S.vol*.6;
+  const env=(g,t0,a,d,pk)=>{g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(Math.max(pk,.0002),t0+a);g.gain.exponentialRampToValueAtTime(.0001,t0+a+d)};
+  const noise=(d,f,pk,q=.7)=>{const n=AC.sampleRate*d|0,b=AC.createBuffer(1,n,AC.sampleRate),x=b.getChannelData(0);for(let i=0;i<n;i++)x[i]=Math.random()*2-1;
+    const s=AC.createBufferSource();s.buffer=b;const fl=AC.createBiquadFilter();fl.type='bandpass';fl.frequency.value=f;fl.Q.value=q;const g=AC.createGain();env(g,t,.004,d,pk*v);s.connect(fl);fl.connect(g);g.connect(MG);s.start(t)};
+  const tone=(f,d,pk,dl=0,ty='sine',f2)=>{const o=AC.createOscillator(),g=AC.createGain();o.type=ty;o.frequency.setValueAtTime(f,t+dl);if(f2)o.frequency.exponentialRampToValueAtTime(f2,t+dl+d);env(g,t+dl,.01,d,pk*v);o.connect(g);g.connect(MG);o.start(t+dl);o.stop(t+dl+d+.05)};
+  ({play:()=>{noise(.09,1500,.9);tone(150,.09,.5,0,'sine',70)},deal:()=>noise(.05,2600,.35),pick:()=>tone(520,.05,.25),turn:()=>{tone(523,.22,.3);tone(659,.28,.3,.12)},
+    bluff:()=>{tone(200,.4,.6,0,'sine',70);noise(.12,600,.4)},win:()=>[523,659,784,1047].forEach((f,i)=>tone(f,.4,.3,i*.13,'triangle')),lose:()=>[392,349,294].forEach((f,i)=>tone(f,.35,.28,i*.15))})[k]?.()}catch{}}
 /* ---------- connection ---------- */
 function conn(){
   ws=new WebSocket((location.protocol=='https:'?'wss://':'ws://')+location.host);
@@ -201,7 +205,7 @@ function pick(i){const f=i.files[0];if(!f)return;const im=new Image();im.onload=
   c.getContext('2d').drawImage(im,(im.width-s)/2,(im.height-s)/2,s,s,0,0,72,72);
   S.me.name=nmv();S.me.av=c.toDataURL('image/jpeg',.7);S.scr=='auth'?R():SH()};im.src=URL.createObjectURL(f)}
 const dots=n=>`<span class="dots">${[0,1,2,3].map(i=>`<i class="${i<n?'':'o'}"></i>`).join('')}</span>`;
-const lsHtml=()=>S.ls.length?S.ls.map((x,i)=>`<div class="pn bar${S.anim?' up':''}" style="--i:${i}"><span class="who">${A(x.avs[0],x.host)}<span><b class="ser" style="font-size:16px">${esc(x.host)}'s table</b><small>Waiting for players</small></span></span><span class="who">${dots(x.n)}<button class="lk" onclick="tx({t:'join',code:'${x.code}'})">Sit</button></span></div>`).join(''):'<div class="empty">No open tables yet.<br>Open one and invite your friends.</div>';
+const lsHtml=()=>S.ls.length?S.ls.map((x,i)=>`<div class="pn bar${S.anim?' up':''}" style="--i:${i}"><span class="who">${A(x.avs[0],x.host)}<span><b class="ser" style="font-size:16px">${esc(x.host)}'s table</b><small>${x.live?'Match in progress':'Waiting for players'}${x.w?' · '+x.w+' watching':''}</small></span></span><span class="who">${dots(x.n)}${x.live||x.n>=4?'':`<button class="lk" onclick="tx({t:'join',code:'${x.code}'})">Sit</button>`}<button class="lk" style="color:var(--mu)" onclick="tx({t:'join',code:'${x.code}',watch:1})">Watch</button></span></div>`).join(''):'<div class="empty">No open tables yet.<br>Open one and invite your friends.</div>';
 function home(){const [w,g]=st();
   let h=`<div class="tp"><span class="who">${A(S.me.av,S.me.name)}<span><b class="ser">${esc(S.me.name)}</b><small>${w} wins · ${g} games</small></span></span><button class="ib" onclick="sheet('set')">${ic('gear')}</button></div>`;
   if(S.tab==0)h+=`<div class="${S.anim?'up':''}"><button class="big brass" onclick="tx({t:'create'})">${ic('plus',18)} Open a new table</button></div><div class="lbl">OPEN TABLES</div><div id="ls">${lsHtml()}</div>`;
@@ -214,19 +218,19 @@ const fan=n=>n?`<div class="fan">${'<i></i>'.repeat(Math.max(1,Math.min(6,Math.c
 const seat=(p,g,c)=>`<div class="se p-${c}${g&&g.turn==p.id?' on':''}${p.off?' off':''}" id="seat-${p.id}">${A(p.av,p.name)}<span>${esc(p.name)}${vc(p.id)}</span>${fan(p.n)}${p.bot?'<small>bot</small>':''}${p.off?'<small>offline</small>':''}</div>`;
 const CH=['Nice play','Hurry up','Bluff?','Oops','Good game'];
 function room(){const L=S.L,g=L.g,nm=id=>(L.players.find(p=>p.id==id)||{}).name;
-  const top=`<div class="tp"><button class="ib" onclick="tx({t:'leave'})">${ic('back')}</button><b class="ser">${esc(nm(L.host))}'s table</b><span style="display:flex"><button class="ib ${mt&&!S.mute?'on':''}" onclick="mic()">${ic(mt&&!S.mute?'mic':'micoff')}</button><button class="ib" onclick="S.chat=!S.chat;R()">${ic('chat')}</button><button class="ib" onclick="sheet('help')">${ic('help')}</button><button class="ib" onclick="sheet('set')">${ic('gear')}</button></span></div>`+
+  const top=`<div class="tp"><button class="ib" onclick="tx({t:'leave'})">${ic('back')}</button><b class="ser">${L.watch?'Watching ':''}${esc(nm(L.host))}'s table</b><span style="display:flex">${L.watch?'':`<button class="ib ${mt&&!S.mute?'on':''}" onclick="mic()">${ic(mt&&!S.mute?'mic':'micoff')}</button>`}<button class="ib" onclick="S.chat=!S.chat;R()">${ic('chat')}</button><button class="ib" onclick="sheet('help')">${ic('help')}</button><button class="ib" onclick="sheet('set')">${ic('gear')}</button></span></div>`+
     (S.chat?`<div class="chips">${CH.map(c=>`<b onclick="tx({t:'emo',e:'${c}'})">${c}</b>`).join('')}</div>`:'');
   if(!g)return top+`<div class="lbl">AT THE TABLE</div>`+L.players.map(p=>`<div class="pn who se" id="seat-${p.id}" style="text-align:left">${A(p.av,p.name)}<span><b class="ser" style="font-size:16px">${esc(p.name)}</b>${p.id==L.host?' <small>host</small>':''}${p.bot?' <small>bot</small>':''}${p.off?' <small>offline</small>':''}${vc(p.id)}</span>${L.host==L.me&&p.bot?`<button class="lk" style="margin-left:auto" onclick="tx({t:'bot',op:'del',id:'${p.id}'})">Remove</button>`:''}</div>`).join('')+(L.host==L.me&&L.players.length<4?`<button class="big bt" onclick="tx({t:'bot',op:'add'})">${ic('plus',18)} Add a bot</button>`:'')+(L.res?`<div class="pn">${esc(L.res)}</div>`:'')+
-    (L.host==L.me?`<button class="big brass" onclick="tx({t:'start'})" ${L.players.length<2?'disabled style="opacity:.4"':''}>Start match</button>`:`<div class="empty">Waiting for the host to start</div>`);
-  const i=L.players.findIndex(p=>p.id==L.me),o=[...L.players.slice(i+1),...L.players.slice(0,i)],pos={1:['t'],2:['l','r'],3:['l','t','r']}[o.length]||[];
-  const my=[...g.hand].sort((a,b)=>cv(a)-cv(b)),mine=g.turn==L.me,cur=mine&&!g.pend,canB=g.last&&g.last.by!=L.me;
+    (L.host==L.me?`<button class="big brass" onclick="tx({t:'start'})" ${L.players.length<2?'disabled style="opacity:.4"':''}>Start match</button>`:`${L.watch&&L.players.length<4?`<button class="big brass" onclick="tx({t:'sit'})">Take a seat</button>`:''}<div class="empty">Waiting for the host to start</div>`);
+  const i=L.players.findIndex(p=>p.id==L.me),o=L.watch?L.players:[...L.players.slice(i+1),...L.players.slice(0,i)],pos=(L.watch?{1:['b'],2:['b','t'],3:['b','l','r'],4:['b','l','t','r']}:{1:['t'],2:['l','r'],3:['l','t','r']})[o.length]||[];
+  const my=[...g.hand].sort((a,b)=>cv(a)-cv(b)),mine=g.turn==L.me,cur=mine&&!g.pend,canB=mine&&g.last&&g.last.by!=L.me;
   const pile=g.pile?`<div class="pile">${Array.from({length:Math.min(g.pile,5)},(_,k)=>`<span class="c b" style="--r:${(k*37%30)-15}deg;--x:${(k*13%22)-11}px"></span>`).join('')}</div>`:'';
   const tb=g.rev&&!g.last?`<span class="ser">${esc(g.rev.caller)} called bluff</span><div class="rev${S.flip?' flip':''}">${g.rev.ids.map(c=>card(c)).join('')}</div><b class="ser" style="color:${g.rev.ok?'#9be3b2':'#f08c92'}">${g.rev.ok?'It was true':'It was a bluff'}</b><small style="color:#cfe5d6">${esc(nm(g.rev.loser))} takes the pile. ${esc(nm(g.rev.next))} starts.</small>`
     :`<div class="med">${g.rank!=null?RK[g.rank]:'-'}</div>${pile}<span class="ser">${g.last?esc(nm(g.last.by))+': '+g.last.n+' × '+RK[g.last.rank]:'New round'}</span>`;
   return top+`<div class="gm"><div class="gt">${o.map((p,k)=>seat(p,g,pos[k])).join('')}<div class="wood"><div class="tbl">${tb}</div></div></div>
-  <div><div class="bar"><span class="ser pill">${g.pend?'Last cards. ':''}${mine?'Your turn':esc(nm(g.turn))+"'s turn"}</span><small id="cd">${Math.ceil(Math.max(0,g.left-(Date.now()-S.at))/1000)}s</small></div><div class="tm" style="margin-top:6px"><i id="tbar" style="width:${Math.max(0,g.left-(Date.now()-S.at))/450}%"></i></div></div>`+
+  <div><div class="bar"><span class="ser pill">${g.pend?'Last cards. ':''}${mine?'Your turn':esc(nm(g.turn))+"'s turn"}</span><small>${L.specN?L.specN+' watching · ':''}<span id="cd">${Math.ceil(Math.max(0,g.left-(Date.now()-S.at))/1000)}s</span></small></div><div class="tm" style="margin-top:6px"><i id="tbar" style="width:${Math.max(0,g.left-(Date.now()-S.at))/450}%"></i></div></div>`+
   (cur?(g.rank==null?`<div class="rk"><span>Pick a rank</span>${RK.map((r,k)=>`<b class="${S.rk===k?'on':''}" onclick="pickRk(${k})">${r}</b>`).join('')}</div>`:`<div class="lock">${ic('lock',15)} You must claim <b>${RK[g.rank]}</b></div>`):'')+
-  `<div class="dock"><div class="hand">${my.map(c=>card(c,1)).join('')}</div>
+  `<div class="dock"${L.watch?' style="display:none"':''}><div class="hand">${my.map(c=>card(c,1)).join('')}</div>
   <div class="bl">${canB?'<button class="bt rd" onclick="tx({t:\'bluff\'})">Bluff</button>':''}${mine&&g.last?'<button class="bt" onclick="tx({t:\'pass\'})">Pass</button>':''}</div>
   <div class="pl">${cur?`<button class="brass" style="border-radius:12px" id="pb" onclick="play()" ${S.sel.size&&cr()!=null?'':'disabled'}>${plTxt()}</button>`:''}</div></div></div>`}
 /* ---------- settings sheet (everything in one place) ---------- */
@@ -235,7 +239,7 @@ function sheet(n){S.sheet=n;S.edit=0;SH()}
 function SH(){const e=$('#sheet');if(!S.sheet){e.innerHTML='';return}
   const L=S.L,host=L&&L.host==L.me&&!L.g;
   let b;
-  if(S.sheet=='help')b=`<div class="bar"><b class="ser" style="font-size:20px">How to play</b><button class="lk" onclick="sheet('')">Done</button></div>`+['The first player of a round picks a rank (A to K) and plays cards face down, saying they are that rank.','Everyone after must claim the same rank: play cards, pass, or call bluff.','On a bluff call the cards are shown. If every card matched the rank, the caller takes the pile and the player starts the next round. If not, the player takes the pile and the caller starts.','If everyone passes, the pile is cleared and the next player starts a new round.','Empty your hand to win, once the others pass or fail to catch a bluff on your last cards.','You have 45 seconds per turn.'].map((t,i)=>`<div class="row" style="align-items:flex-start"><b class="ser" style="color:var(--br)">${i+1}</b><span style="flex:1">${t}</span></div>`).join('');
+  if(S.sheet=='help')b=`<div class="bar"><b class="ser" style="font-size:20px">How to play</b><button class="lk" onclick="sheet('')">Done</button></div>`+['The first player of a round picks a rank (A to K) and plays cards face down, saying they are that rank.','The next player must claim the same rank: play cards, pass, or call bluff. Only the next player can call bluff.','On a bluff call the cards are shown. If every card matched the rank, the caller takes the pile and the player starts the next round. If not, the player takes the pile and the caller starts.','If everyone passes, the pile is cleared and the next player starts a new round.','Empty your hand to win, once the others pass or fail to catch a bluff on your last cards.','You have 45 seconds per turn.'].map((t,i)=>`<div class="row" style="align-items:flex-start"><b class="ser" style="color:var(--br)">${i+1}</b><span style="flex:1">${t}</span></div>`).join('');
   else if(S.edit)b=`<div class="bar"><b class="ser" style="font-size:20px">Edit profile</b></div><div class="r2" style="margin-top:10px">${A(S.me.av,S.me.name)}<input id="sn" maxlength="14" value="${esc(S.me.name)}"></div><div class="sw">${COL.map((c,i)=>`<i class="${S.me.av=='c:'+i?'sel':''}" style="background:${c}" onclick="setAv(${i})"></i>`).join('')}</div>${emoGrid()}<label class="lk" style="display:block;margin:6px 0 12px">Add a photo<input type="file" accept="image/*" hidden onchange="pick(this)"></label><div class="r2"><button class="bt" onclick="S.edit=0;SH()">Cancel</button><button class="bt brass" onclick="saveP()">Save</button></div>`;
   else b=`<div class="bar"><b class="ser" style="font-size:20px">Settings</b><button class="lk" onclick="sheet('')">Done</button></div>
 <div class="lbl">PROFILE</div><div class="row"><span class="who">${A(S.me.av,S.me.name)}<b class="ser" style="font-size:16px">${esc(S.me.name)}</b></span><button class="lk" onclick="S.edit=1;SH()">Edit</button></div>
@@ -245,6 +249,7 @@ ${L?`<div class="row"><span>Voice chat</span><button class="lk" onclick="mic()">
 <div class="lbl">DISPLAY</div><div class="row"><span>Table colour</span><span class="th">${[['green','#0f4d3a'],['black','#26262c'],['blue','#1a4a94'],['wine','#7d1f3d']].map(([t,c])=>`<i style="background:${c}" onclick="setT('${t}')"></i>`).join('')}</span></div>
 <div class="row"><span>Landscape</span>${tgl(S.rot,'rotate()')}</div><div class="row"><span>Fullscreen</span><button class="lk" onclick="fs()">Toggle</button></div>
 ${host?`<div class="lbl">THIS TABLE</div><div class="row"><span>Jokers are wild</span>${tgl(L.set.wild,`tx({t:'set',wild:${!L.set.wild}})`)}</div><div class="row"><span>Smart bots</span>${tgl(L.set.level!='easy',`tx({t:'set',level:'${L.set.level=='easy'?'smart':'easy'}'})`)}</div>`:''}
+${L&&L.host==L.me&&L.players.some(p=>p.bot)?`<div class="lbl">BOTS</div><div class="row"><span>Bot speed</span><span class="seg">${['slow','normal','fast'].map(s=>`<b class="${(L.set.speed||'slow')==s?'on':''}" onclick="tx({t:'set',speed:'${s}'})">${s[0].toUpperCase()+s.slice(1)}</b>`).join('')}</span></div>`:''}
 <div class="lbl">PROGRESS</div><div class="row"><span>Saved</span><small>${S.me.uid?(S.store=='cloud'?'In the cloud':'On this phone and server'):'Sign in to save'}</small></div>
 <div class="row"><button style="color:#f08c92" onclick="out()">Log out</button></div>`;
   e.innerHTML=`<div class="ov" onclick="if(event.target==this)sheet('')"><div class="sh">${b}</div></div>`}
@@ -275,7 +280,7 @@ async function onrtc(from,d){const pc=pcs[from]||mk(from,0);
     else if(d.ice){try{await pc.addIceCandidate(d.ice)}catch(e){if(!pc.ign)throw e}}}catch(e){console.log(e)}}
 function watch(id,st){try{ctx();const src=AC.createMediaStreamSource(st),an=AC.createAnalyser();an.fftSize=256;src.connect(an);const b=new Uint8Array(an.frequencyBinCount);
   clearInterval(pcs[id].iv);pcs[id].iv=setInterval(()=>{an.getByteFrequencyData(b);const e=$('#seat-'+id);if(e)e.classList.toggle('talk',b.reduce((x,y)=>x+y,0)/b.length>14)},150)}catch{}}
-function peers(){const L=S.L;if(!L)return;
+function peers(){const L=S.L;if(!L||L.watch)return;
   Object.keys(pcs).forEach(k=>{const p=L.players.find(x=>x.id==k);if(!p||p.off)closePc(k)});
   L.players.forEach(p=>{if(p.id==L.me||p.off||p.bot||L.me>p.id)return;const pc=pcs[p.id];
     if(!pc||(pc.connectionState!='connected'&&Date.now()-pc.t>12000)){closePc(p.id);mk(p.id,1)}})}
